@@ -6,8 +6,10 @@ import DailyLogForm from "@/components/DailyLogForm";
 import RecentScores from "@/components/RecentScores";
 import WeeklyReport from "@/components/WeeklyReport";
 import AIMentorChat from "@/components/AIMentorChat";
+import MockExamTracker from "@/components/MockExamTracker";
+import ClassSchedule from "@/components/ClassSchedule";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, BarChart3, Sparkles } from "lucide-react";
+import { BookOpen, BarChart3, Sparkles, ClipboardCheck, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 
 // Demo data - will be replaced with Supabase
@@ -55,18 +57,27 @@ const Index = () => {
 
       <main className="max-w-4xl mx-auto px-4 py-6 sm:px-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid grid-cols-3 h-14 bg-muted rounded-xl p-1">
-            <TabsTrigger value="dashboard" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2">
+          <TabsList className="grid grid-cols-5 h-14 bg-muted rounded-xl p-1">
+            <TabsTrigger value="dashboard" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
               <BookOpen className="h-4 w-4" />
-              Dashboard
+              <span className="hidden sm:inline">Dashboard</span>
+              <span className="sm:hidden">Home</span>
             </TabsTrigger>
-            <TabsTrigger value="weekly" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2">
+            <TabsTrigger value="mocks" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
+              <ClipboardCheck className="h-4 w-4" />
+              <span>Mocks</span>
+            </TabsTrigger>
+            <TabsTrigger value="classes" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
+              <GraduationCap className="h-4 w-4" />
+              <span>Classes</span>
+            </TabsTrigger>
+            <TabsTrigger value="weekly" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
               <BarChart3 className="h-4 w-4" />
-              Weekly Report
+              <span>Weekly</span>
             </TabsTrigger>
-            <TabsTrigger value="mentor" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2">
+            <TabsTrigger value="mentor" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
               <Sparkles className="h-4 w-4" />
-              11+ Mentor
+              <span>Mentor</span>
             </TabsTrigger>
           </TabsList>
 
@@ -78,6 +89,27 @@ const Index = () => {
             </div>
             <DailyLogForm onSubmit={handleLogSubmit} />
             <RecentScores entries={entries} />
+          </TabsContent>
+
+          <TabsContent value="mocks">
+            <MockExamTracker />
+          </TabsContent>
+
+          <TabsContent value="classes" className="space-y-6">
+            <ClassSchedule
+              className="Amruta Maths Class"
+              teacher="Amruta"
+              subject="Maths"
+              icon={<span className="text-xl">🧮</span>}
+              accentClass="primary"
+            />
+            <ClassSchedule
+              className="Newell Class"
+              teacher="Newell"
+              subject="11+ Prep"
+              icon={<span className="text-xl">📚</span>}
+              accentClass="success"
+            />
           </TabsContent>
 
           <TabsContent value="weekly">
