@@ -26,9 +26,10 @@ interface ClassScheduleProps {
   subject: string;
   icon: React.ReactNode;
   accentClass: string;
+  canManageSchedule?: boolean;
 }
 
-const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentClass }: ClassScheduleProps) => {
+const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentClass, canManageSchedule = true }: ClassScheduleProps) => {
   const [scheduledDates, setScheduledDates] = useState<Date[]>([]);
   const [entries, setEntries] = useState<ClassEntry[]>([]);
   const [isAddingDates, setIsAddingDates] = useState(false);
