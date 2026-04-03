@@ -74,16 +74,16 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
 
   const scheduledStyles = {
     scheduled: {
-      backgroundColor: "hsl(var(--primary) / 0.15)",
+      backgroundColor: "hsl(217 91% 60% / 0.18)",
       borderRadius: "50%",
       fontWeight: "bold" as const,
-      color: "hsl(var(--primary))",
+      color: "hsl(217 91% 60%)",
     },
     completed: {
-      backgroundColor: "hsl(var(--success) / 0.2)",
+      backgroundColor: "hsl(142 71% 45% / 0.2)",
       borderRadius: "50%",
       fontWeight: "bold" as const,
-      color: "hsl(var(--success))",
+      color: "hsl(142 71% 45%)",
     },
   };
 
@@ -120,8 +120,8 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
             <p className="text-sm text-muted-foreground">📅 Tap a scheduled date to enter class details:</p>
             <Calendar mode="single" selected={undefined} onSelect={handleDateClick} modifiers={scheduledModifiers} modifiersStyles={scheduledStyles} className="p-3 pointer-events-auto mx-auto" />
             <div className="flex gap-3 text-xs text-muted-foreground justify-center">
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ backgroundColor: "hsl(var(--primary) / 0.3)" }} />Scheduled</span>
-              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ backgroundColor: "hsl(var(--success) / 0.3)" }} />Completed</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ backgroundColor: "hsl(217 91% 60% / 0.4)" }} />Scheduled</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full" style={{ backgroundColor: "hsl(142 71% 45% / 0.4)" }} />Completed</span>
             </div>
           </>
         )}
