@@ -99,21 +99,21 @@ const Index = () => {
 
       <main className="max-w-4xl mx-auto px-4 py-6 sm:px-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid grid-cols-5 h-14 bg-muted rounded-xl p-1">
-            <TabsTrigger value="dashboard" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
-              <BookOpen className="h-4 w-4" /><span className="hidden sm:inline">Dashboard</span><span className="sm:hidden">Home</span>
+          <TabsList className="grid grid-cols-5 h-16 bg-muted rounded-xl p-1">
+            <TabsTrigger value="dashboard" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
+              <BookOpen className="h-5 w-5" /><span className="hidden sm:inline">Dashboard</span><span className="sm:hidden">Home</span>
             </TabsTrigger>
-            <TabsTrigger value="mocks" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
-              <ClipboardCheck className="h-4 w-4" /><span>Mocks</span>
+            <TabsTrigger value="mocks" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
+              <ClipboardCheck className="h-5 w-5" /><span>Mocks</span>
             </TabsTrigger>
-            <TabsTrigger value="classes" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
-              <GraduationCap className="h-4 w-4" /><span>Classes</span>
+            <TabsTrigger value="classes" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
+              <GraduationCap className="h-5 w-5" /><span>Classes</span>
             </TabsTrigger>
-            <TabsTrigger value="weekly" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
-              <BarChart3 className="h-4 w-4" /><span>Weekly</span>
+            <TabsTrigger value="weekly" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
+              <BarChart3 className="h-5 w-5" /><span>Weekly</span>
             </TabsTrigger>
-            <TabsTrigger value="mentor" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
-              <Sparkles className="h-4 w-4" /><span>AI Mentor</span>
+            <TabsTrigger value="mentor" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
+              <Sparkles className="h-5 w-5" /><span>AI Mentor</span>
             </TabsTrigger>
           </TabsList>
 
