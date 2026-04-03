@@ -98,7 +98,7 @@ const MockExamTracker = () => {
                 <Label>Date</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-12", !date && "text-muted-foreground")}>
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {date ? format(date, "PPP") : "Pick a date"}
                     </Button>
@@ -110,24 +110,24 @@ const MockExamTracker = () => {
               </div>
               <div className="space-y-2">
                 <Label>Exam Provider / Name</Label>
-                <Input placeholder="e.g. GL Assessment, Bond" value={provider} onChange={(e) => setProvider(e.target.value)} />
+                <Input placeholder="e.g. GL Assessment, Bond" value={provider} onChange={(e) => setProvider(e.target.value)} className="h-12" />
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="space-y-1"><Label className="text-xs">English</Label><Input type="number" placeholder="Score" value={englishScore} onChange={(e) => setEnglishScore(e.target.value)} /></div>
-              <div className="space-y-1"><Label className="text-xs">Maths</Label><Input type="number" placeholder="Score" value={mathsScore} onChange={(e) => setMathsScore(e.target.value)} /></div>
-              <div className="space-y-1"><Label className="text-xs">VR</Label><Input type="number" placeholder="Score" value={vrScore} onChange={(e) => setVrScore(e.target.value)} /></div>
-              <div className="space-y-1"><Label className="text-xs">NVR</Label><Input type="number" placeholder="Score" value={nvrScore} onChange={(e) => setNvrScore(e.target.value)} /></div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="space-y-2"><Label className="text-sm">English</Label><Input type="number" placeholder="Score" value={englishScore} onChange={(e) => setEnglishScore(e.target.value)} className="h-12" /></div>
+              <div className="space-y-2"><Label className="text-sm">Maths</Label><Input type="number" placeholder="Score" value={mathsScore} onChange={(e) => setMathsScore(e.target.value)} className="h-12" /></div>
+              <div className="space-y-2"><Label className="text-sm">VR</Label><Input type="number" placeholder="Score" value={vrScore} onChange={(e) => setVrScore(e.target.value)} className="h-12" /></div>
+              <div className="space-y-2"><Label className="text-sm">NVR</Label><Input type="number" placeholder="Score" value={nvrScore} onChange={(e) => setNvrScore(e.target.value)} className="h-12" /></div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label className="text-xs">Total Score</Label><Input type="number" placeholder="Total" value={totalScore} onChange={(e) => setTotalScore(e.target.value)} /></div>
-              <div className="space-y-1"><Label className="text-xs">Max Score</Label><Input type="number" placeholder="400" value={maxScore} onChange={(e) => setMaxScore(e.target.value)} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2"><Label className="text-sm">Total Score</Label><Input type="number" placeholder="Total" value={totalScore} onChange={(e) => setTotalScore(e.target.value)} className="h-12" /></div>
+              <div className="space-y-2"><Label className="text-sm">Max Score</Label><Input type="number" placeholder="400" value={maxScore} onChange={(e) => setMaxScore(e.target.value)} className="h-12" /></div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Notes</Label>
-              <Textarea placeholder="Any observations, areas to improve..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <div className="space-y-2">
+              <Label className="text-sm">Notes</Label>
+              <Textarea placeholder="Any observations, areas to improve..." value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[80px]" />
             </div>
-            <Button onClick={handleSubmit} disabled={addMock.isPending} className="w-full">
+            <Button onClick={handleSubmit} disabled={addMock.isPending} className="w-full h-12 text-base">
               {addMock.isPending ? "Saving..." : "Save Mock Result"}
             </Button>
           </CardContent>

@@ -56,24 +56,24 @@ const DailyLogForm = ({ onSubmit, isSubmitting }: DailyLogFormProps) => {
         {SUBJECTS.map((subject) => (
           <div key={subject.key} className="bg-muted/50 rounded-xl p-4">
             <p className="font-semibold text-foreground mb-3">{subject.emoji} {subject.label}</p>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground">Minutes</Label>
-                <Input type="number" placeholder="0" className="mt-1 h-11 text-base" value={entries[subject.key].minutes} onChange={(e) => updateEntry(subject.key, "minutes", e.target.value)} />
+                <Input type="number" placeholder="0" className="mt-1 h-12 text-base" value={entries[subject.key].minutes} onChange={(e) => updateEntry(subject.key, "minutes", e.target.value)} />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Questions</Label>
-                <Input type="number" placeholder="0" className="mt-1 h-11 text-base" value={entries[subject.key].questions} onChange={(e) => updateEntry(subject.key, "questions", e.target.value)} />
+                <Input type="number" placeholder="0" className="mt-1 h-12 text-base" value={entries[subject.key].questions} onChange={(e) => updateEntry(subject.key, "questions", e.target.value)} />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Score %</Label>
-                <Input type="number" placeholder="0" min="0" max="100" className="mt-1 h-11 text-base" value={entries[subject.key].score} onChange={(e) => updateEntry(subject.key, "score", e.target.value)} />
+                <Input type="number" placeholder="0" min="0" max="100" className="mt-1 h-12 text-base" value={entries[subject.key].score} onChange={(e) => updateEntry(subject.key, "score", e.target.value)} />
               </div>
             </div>
           </div>
         ))}
       </div>
-      <Button onClick={handleSubmit} disabled={isSubmitting} size="lg" className="w-full mt-4">
+      <Button onClick={handleSubmit} disabled={isSubmitting} size="lg" className="w-full mt-4 h-12 text-base">
         {isSubmitting ? "Saving..." : "Save Today's Progress ✅"}
       </Button>
     </div>
