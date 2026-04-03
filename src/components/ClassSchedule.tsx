@@ -158,15 +158,15 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Topics Covered</Label>
-              <Textarea placeholder="e.g. Fractions, Algebra, Comprehension..." value={topicsCovered} onChange={(e) => setTopicsCovered(e.target.value)} className="min-h-[60px]" disabled={readOnly} />
+              <Textarea placeholder="e.g. Fractions, Algebra, Comprehension..." value={topicsCovered} onChange={(e) => setTopicsCovered(e.target.value)} className="min-h-[80px] text-base" disabled={readOnly} />
             </div>
             <div className="space-y-2">
               <Label>Homework / Practice Set</Label>
-              <Input placeholder="e.g. Page 25-30, Bond Paper 5" value={homework} onChange={(e) => setHomework(e.target.value)} disabled={readOnly} />
+              <Input placeholder="e.g. Page 25-30, Bond Paper 5" value={homework} onChange={(e) => setHomework(e.target.value)} className="h-12" disabled={readOnly} />
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
-              <Textarea placeholder="Any observations, things to revise..." value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[60px]" disabled={readOnly} />
+              <Textarea placeholder="Any observations, things to revise..." value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[80px] text-base" disabled={readOnly} />
             </div>
           </div>
           <DialogFooter>
