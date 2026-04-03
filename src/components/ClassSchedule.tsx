@@ -58,6 +58,7 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
     setTopicsCovered(existing?.topics_covered || "");
     setHomework(existing?.homework || "");
     setNotes(existing?.notes || "");
+    setReadOnly(isStudent && !!existing?.completed);
     setDialogOpen(true);
   };
 
