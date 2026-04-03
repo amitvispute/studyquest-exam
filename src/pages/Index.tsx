@@ -113,7 +113,7 @@ const Index = () => {
               <BarChart3 className="h-4 w-4" /><span>Weekly</span>
             </TabsTrigger>
             <TabsTrigger value="mentor" className="rounded-lg text-xs sm:text-sm font-semibold data-[state=active]:shadow-card gap-1 sm:gap-2 flex-col sm:flex-row h-full">
-              <Sparkles className="h-4 w-4" /><span>Mentor</span>
+              <Sparkles className="h-4 w-4" /><span>AI Mentor</span>
             </TabsTrigger>
           </TabsList>
 
