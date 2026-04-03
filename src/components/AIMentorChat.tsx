@@ -117,31 +117,31 @@ const AIMentorChat = () => {
   };
 
   return (
-    <div className="bg-card rounded-2xl shadow-card border border-border flex flex-col h-[500px]">
-      <div className="gradient-primary rounded-t-2xl p-4 flex items-center gap-3">
-        <Sparkles className="h-6 w-6 text-primary-foreground" />
+    <div className="bg-card rounded-2xl shadow-card border border-border flex flex-col h-[550px]">
+      <div className="gradient-primary rounded-t-2xl p-5 flex items-center gap-3">
+        <Sparkles className="h-7 w-7 text-primary-foreground" />
         <div>
-          <h3 className="font-bold text-primary-foreground text-lg">11+ Mentor</h3>
-          <p className="text-primary-foreground/70 text-xs">Your AI study buddy</p>
+          <h3 className="font-bold text-primary-foreground text-xl">11+ Mentor</h3>
+          <p className="text-primary-foreground/70 text-sm">Your AI study buddy</p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {messages.length === 0 && (
           <div className="text-center py-6">
-            <p className="text-4xl mb-3">👋</p>
-            <p className="text-foreground font-semibold">Hi Pareet! What shall we learn today?</p>
-            <p className="text-sm text-muted-foreground mt-1">Pick a topic or ask me anything!</p>
-            <div className="grid grid-cols-2 gap-2 mt-4">
+            <p className="text-5xl mb-3">👋</p>
+            <p className="text-foreground font-semibold text-lg">Hi Pareet! What shall we learn today?</p>
+            <p className="text-base text-muted-foreground mt-1">Pick a topic or ask me anything!</p>
+            <div className="grid grid-cols-2 gap-3 mt-5">
               {QUICK_TOPICS.map((topic) => (
                 <Button
                   key={topic.label}
                   variant="topic"
-                  size="default"
-                  className="text-left justify-start"
+                  size="lg"
+                  className="text-left justify-start min-h-[48px] text-base px-4 py-3"
                   onClick={() => sendMessage(topic.prompt)}
                 >
-                  <span className="mr-2">{topic.emoji}</span>
+                  <span className="mr-2 text-lg">{topic.emoji}</span>
                   {topic.label}
                 </Button>
               ))}
@@ -155,14 +155,14 @@ const AIMentorChat = () => {
             className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+              className={`max-w-[85%] rounded-2xl px-5 py-4 text-base ${
                 msg.role === "user"
                   ? "gradient-primary text-primary-foreground"
                   : "bg-muted text-foreground"
               }`}
             >
               {msg.role === "assistant" ? (
-                <div className="prose prose-sm max-w-none">
+                <div className="prose prose-base max-w-none">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
@@ -174,7 +174,7 @@ const AIMentorChat = () => {
 
         {isLoading && messages[messages.length - 1]?.role === "user" && (
           <div className="flex justify-start">
-            <div className="bg-muted rounded-2xl px-4 py-3 text-sm text-muted-foreground">
+            <div className="bg-muted rounded-2xl px-5 py-4 text-base text-muted-foreground">
               Thinking... 🤔
             </div>
           </div>
@@ -188,7 +188,7 @@ const AIMentorChat = () => {
             e.preventDefault();
             sendMessage(input);
           }}
-          className="flex gap-2"
+          className="flex gap-3"
         >
           <Input
             value={input}
@@ -197,7 +197,7 @@ const AIMentorChat = () => {
             className="flex-1 h-12 text-base"
             disabled={isLoading}
           />
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
+          <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="h-12 w-12">
             <Send className="h-5 w-5" />
           </Button>
         </form>

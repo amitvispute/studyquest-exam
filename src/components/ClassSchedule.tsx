@@ -173,7 +173,7 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
             {readOnly ? (
               <p className="text-sm text-muted-foreground w-full text-center">🔒 Saved — only parents can edit</p>
             ) : (
-              <Button onClick={handleSaveEntry} disabled={upsertEntry.isPending} className="w-full">
+              <Button onClick={handleSaveEntry} disabled={upsertEntry.isPending} className="w-full h-12 text-base">
                 {upsertEntry.isPending ? "Saving..." : "Save Class Details"}
               </Button>
             )}

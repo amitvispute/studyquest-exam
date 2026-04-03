@@ -130,8 +130,10 @@ const Index = () => {
           <TabsContent value="mocks"><MockExamTracker /></TabsContent>
 
           <TabsContent value="classes" className="space-y-6">
-            <ClassSchedule className="Amruta Maths Class" teacher="Amruta" subject="Maths" icon={<span className="text-xl">🧮</span>} accentClass="primary" canManageSchedule={isParent} />
-            <ClassSchedule className="Newell Class" teacher="Newell" subject="11+ Prep" icon={<span className="text-xl">📚</span>} accentClass="success" canManageSchedule={isParent} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ClassSchedule className="Amruta Maths Class" teacher="Amruta" subject="Maths" icon={<span className="text-xl">🧮</span>} accentClass="primary" canManageSchedule={isParent} />
+              <ClassSchedule className="Newell Class" teacher="Newell" subject="11+ Prep" icon={<span className="text-xl">📚</span>} accentClass="success" canManageSchedule={isParent} />
+            </div>
           </TabsContent>
 
           <TabsContent value="weekly"><WeeklyReport data={weeklyData} /></TabsContent>

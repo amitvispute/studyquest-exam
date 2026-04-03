@@ -73,7 +73,7 @@ const DailyLogForm = ({ onSubmit, isSubmitting }: DailyLogFormProps) => {
           </div>
         ))}
       </div>
-      <Button onClick={handleSubmit} disabled={isSubmitting} size="lg" className="w-full mt-4">
+      <Button onClick={handleSubmit} disabled={isSubmitting} size="lg" className="w-full mt-4 h-12 text-base">
         {isSubmitting ? "Saving..." : "Save Today's Progress ✅"}
       </Button>
     </div>
