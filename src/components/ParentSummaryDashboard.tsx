@@ -86,18 +86,6 @@ const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryD
         </ResponsiveContainer>
       </div>
 
-      {/* Subject Radar */}
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
-        <h3 className="text-base font-bold text-foreground mb-3">🎯 Subject Scores (14 days)</h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <RadarChart data={subjectRadar}>
-            <PolarGrid />
-            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
-            <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-            <Radar dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
     </div>
   );
 };
