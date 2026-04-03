@@ -26,9 +26,10 @@ interface ClassScheduleProps {
   subject: string;
   icon: React.ReactNode;
   accentClass: string;
+  canManageSchedule?: boolean;
 }
 
-const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentClass }: ClassScheduleProps) => {
+const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentClass, canManageSchedule = true }: ClassScheduleProps) => {
   const [scheduledDates, setScheduledDates] = useState<Date[]>([]);
   const [entries, setEntries] = useState<ClassEntry[]>([]);
   const [isAddingDates, setIsAddingDates] = useState(false);
@@ -114,14 +115,16 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
               <p className="text-xs font-normal text-muted-foreground">Teacher: {teacher} · {subject}</p>
             </div>
           </CardTitle>
-          <Button
-            size="sm"
-            variant={isAddingDates ? "default" : "outline"}
-            onClick={() => setIsAddingDates(!isAddingDates)}
-            className="gap-1"
-          >
-            {isAddingDates ? "Done" : <><Plus className="h-4 w-4" /> Schedule</>}
-          </Button>
+          {canManageSchedule && (
+            <Button
+              size="sm"
+              variant={isAddingDates ? "default" : "outline"}
+              onClick={() => setIsAddingDates(!isAddingDates)}
+              className="gap-1"
+            >
+              {isAddingDates ? "Done" : <><Plus className="h-4 w-4" /> Schedule</>}
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
