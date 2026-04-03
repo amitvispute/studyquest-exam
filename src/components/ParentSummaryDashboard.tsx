@@ -9,12 +9,6 @@ interface ParentSummaryDashboardProps {
   totalQuestions: number;
 }
 
-const SUBJECT_FULL: Record<string, string> = {
-  english: "English",
-  maths: "Maths",
-  vr: "VR",
-  nvr: "NVR",
-};
 
 const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryDashboardProps) => {
   const weeklyStats = useMemo(() => {
