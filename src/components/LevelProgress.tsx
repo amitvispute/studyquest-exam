@@ -12,7 +12,10 @@ const LEVELS = [
 ];
 
 const LevelProgress = ({ totalQuestions }: LevelProgressProps) => {
-  const currentLevelIndex = LEVELS.findLastIndex((l) => totalQuestions >= l.threshold);
+  let currentLevelIndex = 0;
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    if (totalQuestions >= LEVELS[i].threshold) { currentLevelIndex = i; break; }
+  }
   const currentLevel = LEVELS[currentLevelIndex] || LEVELS[0];
   const nextLevel = LEVELS[currentLevelIndex + 1];
 
