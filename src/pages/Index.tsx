@@ -10,6 +10,7 @@ import WeeklyReport from "@/components/WeeklyReport";
 import AIMentorChat from "@/components/AIMentorChat";
 import MockExamTracker from "@/components/MockExamTracker";
 import ClassSchedule from "@/components/ClassSchedule";
+import ParentSummaryDashboard from "@/components/ParentSummaryDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, BarChart3, Sparkles, ClipboardCheck, GraduationCap, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,23 +39,19 @@ const Index = () => {
 
   const totalQuestions = logs.reduce((sum, e) => sum + e.questions, 0);
 
-  // Calculate streak from logs
   const streak = useMemo(() => {
     const uniqueDates = [...new Set(logs.map((l) => l.date))].sort().reverse();
     let count = 0;
-    const today = format(new Date(), "yyyy-MM-dd");
     for (let i = 0; i < uniqueDates.length; i++) {
       const expected = format(subDays(new Date(), i), "yyyy-MM-dd");
       if (uniqueDates[i] === expected) count++;
       else if (i === 0 && uniqueDates[0] === format(subDays(new Date(), 1), "yyyy-MM-dd")) {
-        // Allow yesterday as start
         count++;
       } else break;
     }
     return count;
   }, [logs]);
 
-  // Weekly data
   const weeklyData = useMemo(() => {
     const sevenDaysAgo = format(subDays(new Date(), 7), "yyyy-MM-dd");
     const recentLogs = logs.filter((l) => l.date >= sevenDaysAgo);
@@ -119,12 +116,18 @@ const Index = () => {
 
           <TabsContent value="dashboard" className="space-y-5">
             <CountdownWidget />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <StreakWidget streak={streak} />
-              <LevelProgress totalQuestions={totalQuestions} />
-            </div>
-            <DailyLogForm onSubmit={handleLogSubmit} isSubmitting={addLogs.isPending} />
-            <RecentScores entries={entries} />
+            {isParent ? (
+              <ParentSummaryDashboard logs={logs} streak={streak} totalQuestions={totalQuestions} />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <StreakWidget streak={streak} />
+                  <LevelProgress totalQuestions={totalQuestions} />
+                </div>
+                <DailyLogForm onSubmit={handleLogSubmit} isSubmitting={addLogs.isPending} />
+                <RecentScores entries={entries} />
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="mocks"><MockExamTracker /></TabsContent>

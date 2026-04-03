@@ -14,6 +14,131 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_mock_answers: {
+        Row: {
+          exam_id: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          student_answer: string
+          submitted_at: string
+        }
+        Insert: {
+          exam_id: string
+          id?: string
+          is_correct?: boolean
+          question_id: string
+          student_answer: string
+          submitted_at?: string
+        }
+        Update: {
+          exam_id?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          student_answer?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_mock_answers_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "ai_mock_exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_mock_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "ai_mock_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_mock_exams: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          num_questions: number
+          scheduled_end: string
+          scheduled_start: string
+          status: string
+          student_user_id: string
+          subjects: string[]
+          title: string
+          topics: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          num_questions?: number
+          scheduled_end: string
+          scheduled_start: string
+          status?: string
+          student_user_id: string
+          subjects?: string[]
+          title: string
+          topics?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          num_questions?: number
+          scheduled_end?: string
+          scheduled_start?: string
+          status?: string
+          student_user_id?: string
+          subjects?: string[]
+          title?: string
+          topics?: string | null
+        }
+        Relationships: []
+      }
+      ai_mock_questions: {
+        Row: {
+          correct_answer: string
+          exam_id: string
+          id: string
+          options: Json
+          question_number: number
+          question_text: string
+          subject: string
+          topic: string | null
+        }
+        Insert: {
+          correct_answer: string
+          exam_id: string
+          id?: string
+          options?: Json
+          question_number: number
+          question_text: string
+          subject: string
+          topic?: string | null
+        }
+        Update: {
+          correct_answer?: string
+          exam_id?: string
+          id?: string
+          options?: Json
+          question_number?: number
+          question_text?: string
+          subject?: string
+          topic?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_mock_questions_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "ai_mock_exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_entries: {
         Row: {
           class_name: string
