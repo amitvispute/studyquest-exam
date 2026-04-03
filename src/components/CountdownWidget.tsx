@@ -5,7 +5,7 @@ interface CountdownWidgetProps {
   targetDate?: Date;
 }
 
-const CountdownWidget = ({ targetDate = new Date("2025-09-14") }: CountdownWidgetProps) => {
+const CountdownWidget = ({ targetDate = new Date("2026-09-14") }: CountdownWidgetProps) => {
   const daysLeft = useMemo(() => {
     const now = new Date();
     const diff = targetDate.getTime() - now.getTime();
