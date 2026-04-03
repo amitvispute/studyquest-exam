@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { format, subDays } from "date-fns";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import type { DailyLog } from "@/hooks/useDailyLogs";
 
 interface ParentSummaryDashboardProps {
@@ -9,12 +9,6 @@ interface ParentSummaryDashboardProps {
   totalQuestions: number;
 }
 
-const SUBJECT_FULL: Record<string, string> = {
-  english: "English",
-  maths: "Maths",
-  vr: "VR",
-  nvr: "NVR",
-};
 
 const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryDashboardProps) => {
   const weeklyStats = useMemo(() => {
@@ -46,17 +40,8 @@ const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryD
     }));
   }, [logs]);
 
-  const subjectRadar = useMemo(() => {
-    const cutoff = format(subDays(new Date(), 14), "yyyy-MM-dd");
-    const recent = logs.filter((l) => l.date >= cutoff);
-    return ["english", "maths", "vr", "nvr"].map((s) => {
-      const subLogs = recent.filter((l) => l.subject === s);
-      const avg = subLogs.length > 0 ? Math.round(subLogs.reduce((sum, l) => sum + l.score, 0) / subLogs.length) : 0;
-      return { subject: SUBJECT_FULL[s], score: avg };
-    });
-  }, [logs]);
 
-  const needsAttention = subjectRadar.filter((s) => s.score > 0 && s.score < 85);
+  
 
   return (
     <div className="space-y-5">
@@ -80,15 +65,6 @@ const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryD
         </div>
       </div>
 
-      {/* Needs Attention */}
-      {needsAttention.length > 0 && (
-        <div className="bg-warning/10 border border-warning/30 rounded-2xl p-4">
-          <p className="font-semibold text-foreground text-sm">⚠️ Needs Attention</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {needsAttention.map((s) => `${s.subject} (${s.score}%)`).join(", ")} — below 85% target
-          </p>
-        </div>
-      )}
 
       {/* Daily Activity Chart */}
       <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
@@ -104,18 +80,6 @@ const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryD
         </ResponsiveContainer>
       </div>
 
-      {/* Subject Radar */}
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
-        <h3 className="text-base font-bold text-foreground mb-3">🎯 Subject Scores (14 days)</h3>
-        <ResponsiveContainer width="100%" height={250}>
-          <RadarChart data={subjectRadar}>
-            <PolarGrid />
-            <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12 }} />
-            <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
-            <Radar dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
     </div>
   );
 };
