@@ -71,15 +71,6 @@ const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryD
         </div>
       </div>
 
-      {/* Needs Attention */}
-      {needsAttention.length > 0 && (
-        <div className="bg-warning/10 border border-warning/30 rounded-2xl p-4">
-          <p className="font-semibold text-foreground text-sm">⚠️ Needs Attention</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {needsAttention.map((s) => `${s.subject} (${s.score}%)`).join(", ")} — below 85% target
-          </p>
-        </div>
-      )}
 
       {/* Daily Activity Chart */}
       <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
