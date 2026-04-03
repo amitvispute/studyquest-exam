@@ -47,7 +47,7 @@ const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryD
   }, [logs]);
 
 
-  const needsAttention = subjectRadar.filter((s) => s.score > 0 && s.score < 85);
+  
 
   return (
     <div className="space-y-5">
