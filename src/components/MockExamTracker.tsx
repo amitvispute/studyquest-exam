@@ -5,56 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { ClipboardCheck, Plus, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-interface MockExam {
-  id: string;
-  date: string;
-  provider: string;
-  englishScore: number | null;
-  mathsScore: number | null;
-  vrScore: number | null;
-  nvrScore: number | null;
-  totalScore: number | null;
-  maxScore: number | null;
-  notes: string;
-}
-
-const DEMO_MOCKS: MockExam[] = [
-  {
-    id: "1",
-    date: "2025-06-28",
-    provider: "GL Assessment",
-    englishScore: 82,
-    mathsScore: 75,
-    vrScore: 88,
-    nvrScore: 79,
-    totalScore: 324,
-    maxScore: 400,
-    notes: "Need more practice on comprehension passages",
-  },
-  {
-    id: "2",
-    date: "2025-06-14",
-    provider: "Bond Papers",
-    englishScore: 78,
-    mathsScore: 70,
-    vrScore: 85,
-    nvrScore: 82,
-    totalScore: 315,
-    maxScore: 400,
-    notes: "Time management was an issue in maths",
-  },
-];
+import { useMockExams } from "@/hooks/useMockExams";
 
 const MockExamTracker = () => {
-  const [mocks, setMocks] = useState<MockExam[]>(DEMO_MOCKS);
+  const { mocks, isLoading, addMock } = useMockExams();
   const [showForm, setShowForm] = useState(false);
   const [date, setDate] = useState<Date>();
   const [provider, setProvider] = useState("");
@@ -72,31 +33,34 @@ const MockExamTracker = () => {
       return;
     }
 
-    const newMock: MockExam = {
-      id: Date.now().toString(),
-      date: format(date, "yyyy-MM-dd"),
-      provider,
-      englishScore: englishScore ? Number(englishScore) : null,
-      mathsScore: mathsScore ? Number(mathsScore) : null,
-      vrScore: vrScore ? Number(vrScore) : null,
-      nvrScore: nvrScore ? Number(nvrScore) : null,
-      totalScore: totalScore ? Number(totalScore) : null,
-      maxScore: maxScore ? Number(maxScore) : null,
-      notes,
-    };
-
-    setMocks((prev) => [newMock, ...prev]);
-    setShowForm(false);
-    setDate(undefined);
-    setProvider("");
-    setEnglishScore("");
-    setMathsScore("");
-    setVrScore("");
-    setNvrScore("");
-    setTotalScore("");
-    setMaxScore("400");
-    setNotes("");
-    toast.success("Mock exam result saved! 📝");
+    addMock.mutate(
+      {
+        date: format(date, "yyyy-MM-dd"),
+        provider,
+        english_score: englishScore ? Number(englishScore) : null,
+        maths_score: mathsScore ? Number(mathsScore) : null,
+        vr_score: vrScore ? Number(vrScore) : null,
+        nvr_score: nvrScore ? Number(nvrScore) : null,
+        total_score: totalScore ? Number(totalScore) : null,
+        max_score: maxScore ? Number(maxScore) : null,
+        notes: notes || "",
+      },
+      {
+        onSuccess: () => {
+          setShowForm(false);
+          setDate(undefined);
+          setProvider("");
+          setEnglishScore("");
+          setMathsScore("");
+          setVrScore("");
+          setNvrScore("");
+          setTotalScore("");
+          setMaxScore("400");
+          setNotes("");
+          toast.success("Mock exam result saved! 📝");
+        },
+      }
+    );
   };
 
   const getScoreBadge = (score: number | null, max: number = 100) => {
@@ -109,6 +73,8 @@ const MockExamTracker = () => {
       </Badge>
     );
   };
+
+  if (isLoading) return <div className="text-center text-muted-foreground p-8">Loading...</div>;
 
   return (
     <div className="space-y-4">
@@ -125,7 +91,6 @@ const MockExamTracker = () => {
             </Button>
           </div>
         </CardHeader>
-
         {showForm && (
           <CardContent className="border-t border-border pt-4 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -148,48 +113,26 @@ const MockExamTracker = () => {
                 <Input placeholder="e.g. GL Assessment, Bond" value={provider} onChange={(e) => setProvider(e.target.value)} />
               </div>
             </div>
-
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">English</Label>
-                <Input type="number" placeholder="Score" value={englishScore} onChange={(e) => setEnglishScore(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Maths</Label>
-                <Input type="number" placeholder="Score" value={mathsScore} onChange={(e) => setMathsScore(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">VR</Label>
-                <Input type="number" placeholder="Score" value={vrScore} onChange={(e) => setVrScore(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">NVR</Label>
-                <Input type="number" placeholder="Score" value={nvrScore} onChange={(e) => setNvrScore(e.target.value)} />
-              </div>
+              <div className="space-y-1"><Label className="text-xs">English</Label><Input type="number" placeholder="Score" value={englishScore} onChange={(e) => setEnglishScore(e.target.value)} /></div>
+              <div className="space-y-1"><Label className="text-xs">Maths</Label><Input type="number" placeholder="Score" value={mathsScore} onChange={(e) => setMathsScore(e.target.value)} /></div>
+              <div className="space-y-1"><Label className="text-xs">VR</Label><Input type="number" placeholder="Score" value={vrScore} onChange={(e) => setVrScore(e.target.value)} /></div>
+              <div className="space-y-1"><Label className="text-xs">NVR</Label><Input type="number" placeholder="Score" value={nvrScore} onChange={(e) => setNvrScore(e.target.value)} /></div>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Total Score</Label>
-                <Input type="number" placeholder="Total" value={totalScore} onChange={(e) => setTotalScore(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Max Score</Label>
-                <Input type="number" placeholder="400" value={maxScore} onChange={(e) => setMaxScore(e.target.value)} />
-              </div>
+              <div className="space-y-1"><Label className="text-xs">Total Score</Label><Input type="number" placeholder="Total" value={totalScore} onChange={(e) => setTotalScore(e.target.value)} /></div>
+              <div className="space-y-1"><Label className="text-xs">Max Score</Label><Input type="number" placeholder="400" value={maxScore} onChange={(e) => setMaxScore(e.target.value)} /></div>
             </div>
-
             <div className="space-y-1">
               <Label className="text-xs">Notes</Label>
               <Textarea placeholder="Any observations, areas to improve..." value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
-
-            <Button onClick={handleSubmit} className="w-full">Save Mock Result</Button>
+            <Button onClick={handleSubmit} disabled={addMock.isPending} className="w-full">
+              {addMock.isPending ? "Saving..." : "Save Mock Result"}
+            </Button>
           </CardContent>
         )}
       </Card>
-
-      {/* Results list */}
       <div className="space-y-3">
         {mocks.map((mock) => (
           <Card key={mock.id} className="shadow-card">
@@ -199,28 +142,18 @@ const MockExamTracker = () => {
                   <p className="font-semibold text-foreground">{mock.provider}</p>
                   <p className="text-xs text-muted-foreground">{format(new Date(mock.date), "dd MMM yyyy")}</p>
                 </div>
-                {mock.totalScore !== null && mock.maxScore !== null && (
+                {mock.total_score !== null && mock.max_score !== null && (
                   <div className="text-right">
-                    <p className="text-lg font-bold text-foreground">{mock.totalScore}/{mock.maxScore}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {Math.round((mock.totalScore / mock.maxScore) * 100)}%
-                    </p>
+                    <p className="text-lg font-bold text-foreground">{mock.total_score}/{mock.max_score}</p>
+                    <p className="text-xs text-muted-foreground">{Math.round((mock.total_score / mock.max_score) * 100)}%</p>
                   </div>
                 )}
               </div>
               <div className="flex flex-wrap gap-2 mb-2">
-                {mock.englishScore !== null && (
-                  <span className="text-xs">Eng: {getScoreBadge(mock.englishScore)}</span>
-                )}
-                {mock.mathsScore !== null && (
-                  <span className="text-xs">Maths: {getScoreBadge(mock.mathsScore)}</span>
-                )}
-                {mock.vrScore !== null && (
-                  <span className="text-xs">VR: {getScoreBadge(mock.vrScore)}</span>
-                )}
-                {mock.nvrScore !== null && (
-                  <span className="text-xs">NVR: {getScoreBadge(mock.nvrScore)}</span>
-                )}
+                {mock.english_score !== null && <span className="text-xs">Eng: {getScoreBadge(mock.english_score)}</span>}
+                {mock.maths_score !== null && <span className="text-xs">Maths: {getScoreBadge(mock.maths_score)}</span>}
+                {mock.vr_score !== null && <span className="text-xs">VR: {getScoreBadge(mock.vr_score)}</span>}
+                {mock.nvr_score !== null && <span className="text-xs">NVR: {getScoreBadge(mock.nvr_score)}</span>}
               </div>
               {mock.notes && <p className="text-sm text-muted-foreground italic">{mock.notes}</p>}
             </CardContent>
