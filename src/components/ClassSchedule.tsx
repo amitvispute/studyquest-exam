@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, BookOpen, PenLine } from "lucide-react";
+import { Plus, BookOpen, PenLine, Lock } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { useClassData } from "@/hooks/useClassData";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ClassScheduleProps {
   className: string;
@@ -23,9 +24,12 @@ interface ClassScheduleProps {
 
 const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentClass, canManageSchedule = true }: ClassScheduleProps) => {
   const { schedules, entries, isLoading, addScheduleDate, removeScheduleDate, upsertEntry } = useClassData(classTitle);
+  const { role } = useAuth();
+  const isStudent = role === "student";
   const [isAddingDates, setIsAddingDates] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
   const [topicsCovered, setTopicsCovered] = useState("");
   const [homework, setHomework] = useState("");
   const [notes, setNotes] = useState("");
@@ -54,6 +58,7 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
     setTopicsCovered(existing?.topics_covered || "");
     setHomework(existing?.homework || "");
     setNotes(existing?.notes || "");
+    setReadOnly(isStudent && !!existing?.completed);
     setDialogOpen(true);
   };
 
@@ -145,26 +150,33 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">{icon}{classTitle} — {selectedDate ? format(selectedDate, "dd MMM yyyy") : ""}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {icon}{classTitle} — {selectedDate ? format(selectedDate, "dd MMM yyyy") : ""}
+              {readOnly && <Badge variant="secondary" className="ml-2 gap-1"><Lock className="h-3 w-3" />Saved</Badge>}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Topics Covered</Label>
-              <Textarea placeholder="e.g. Fractions, Algebra, Comprehension..." value={topicsCovered} onChange={(e) => setTopicsCovered(e.target.value)} className="min-h-[60px]" />
+              <Textarea placeholder="e.g. Fractions, Algebra, Comprehension..." value={topicsCovered} onChange={(e) => setTopicsCovered(e.target.value)} className="min-h-[60px]" disabled={readOnly} />
             </div>
             <div className="space-y-2">
               <Label>Homework / Practice Set</Label>
-              <Input placeholder="e.g. Page 25-30, Bond Paper 5" value={homework} onChange={(e) => setHomework(e.target.value)} />
+              <Input placeholder="e.g. Page 25-30, Bond Paper 5" value={homework} onChange={(e) => setHomework(e.target.value)} disabled={readOnly} />
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
-              <Textarea placeholder="Any observations, things to revise..." value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[60px]" />
+              <Textarea placeholder="Any observations, things to revise..." value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[60px]" disabled={readOnly} />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSaveEntry} disabled={upsertEntry.isPending} className="w-full">
-              {upsertEntry.isPending ? "Saving..." : "Save Class Details"}
-            </Button>
+            {readOnly ? (
+              <p className="text-sm text-muted-foreground w-full text-center">🔒 Saved — only parents can edit</p>
+            ) : (
+              <Button onClick={handleSaveEntry} disabled={upsertEntry.isPending} className="w-full">
+                {upsertEntry.isPending ? "Saving..." : "Save Class Details"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
