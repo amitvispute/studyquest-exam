@@ -74,16 +74,16 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
 
   const scheduledStyles = {
     scheduled: {
-      backgroundColor: "hsl(var(--primary) / 0.15)",
+      backgroundColor: "hsl(217 91% 60% / 0.18)",
       borderRadius: "50%",
       fontWeight: "bold" as const,
-      color: "hsl(var(--primary))",
+      color: "hsl(217 91% 60%)",
     },
     completed: {
-      backgroundColor: "hsl(var(--success) / 0.2)",
+      backgroundColor: "hsl(142 71% 45% / 0.2)",
       borderRadius: "50%",
       fontWeight: "bold" as const,
-      color: "hsl(var(--success))",
+      color: "hsl(142 71% 45%)",
     },
   };
 
