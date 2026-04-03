@@ -117,7 +117,10 @@ const Index = () => {
           <TabsContent value="dashboard" className="space-y-5">
             <CountdownWidget />
             {isParent ? (
-              <ParentSummaryDashboard logs={logs} streak={streak} totalQuestions={totalQuestions} />
+              <>
+                <ParentSummaryDashboard logs={logs} streak={streak} totalQuestions={totalQuestions} />
+                <RecentScores entries={entries} />
+              </>
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
