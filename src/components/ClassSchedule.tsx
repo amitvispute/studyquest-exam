@@ -7,10 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, BookOpen, PenLine } from "lucide-react";
+import { Plus, BookOpen, PenLine, Lock } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { useClassData } from "@/hooks/useClassData";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ClassScheduleProps {
   className: string;
