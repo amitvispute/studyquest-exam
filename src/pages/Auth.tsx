@@ -69,7 +69,7 @@ const Auth = () => {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-foreground">🎓 Pareet's 11+ Prep</h1>
+          <h1 className="text-3xl font-extrabold text-foreground">🎓 StudyQuest</h1>
           <p className="text-muted-foreground text-sm mt-1">Grammar School Exam Tracker & AI Mentor</p>
         </div>
 

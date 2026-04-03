@@ -54,7 +54,7 @@ const Index = () => {
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-primary-foreground">
-              🎓 Pareet's 11+ Prep
+              🎓 StudyQuest
             </h1>
             <p className="text-primary-foreground/70 text-sm mt-1">
               Grammar School Exam Tracker & AI Mentor
