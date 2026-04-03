@@ -24,9 +24,12 @@ interface ClassScheduleProps {
 
 const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentClass, canManageSchedule = true }: ClassScheduleProps) => {
   const { schedules, entries, isLoading, addScheduleDate, removeScheduleDate, upsertEntry } = useClassData(classTitle);
+  const { role } = useAuth();
+  const isStudent = role === "student";
   const [isAddingDates, setIsAddingDates] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [readOnly, setReadOnly] = useState(false);
   const [topicsCovered, setTopicsCovered] = useState("");
   const [homework, setHomework] = useState("");
   const [notes, setNotes] = useState("");
