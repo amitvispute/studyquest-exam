@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { format, subDays } from "date-fns";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import type { DailyLog } from "@/hooks/useDailyLogs";
 
 interface ParentSummaryDashboardProps {
