@@ -86,11 +86,11 @@ const Index = () => {
             <p className="text-primary-foreground/70 text-sm mt-1">Grammar School Exam Tracker & AI Mentor</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
+            <div className="text-right">
               <p className="text-sm font-medium text-primary-foreground">{displayName}</p>
               <Badge variant="secondary" className="text-xs capitalize">{role}</Badge>
             </div>
-            <Button variant="ghost" size="icon" onClick={signOut} className="text-primary-foreground hover:bg-primary-foreground/10">
+            <Button variant="ghost" size="icon" onClick={signOut} className="text-primary-foreground hover:bg-primary-foreground/10 h-11 w-11">
               <LogOut className="h-5 w-5" />
             </Button>
           </div>
