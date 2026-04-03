@@ -46,15 +46,6 @@ const ParentSummaryDashboard = ({ logs, streak, totalQuestions }: ParentSummaryD
     }));
   }, [logs]);
 
-  const subjectRadar = useMemo(() => {
-    const cutoff = format(subDays(new Date(), 14), "yyyy-MM-dd");
-    const recent = logs.filter((l) => l.date >= cutoff);
-    return ["english", "maths", "vr", "nvr"].map((s) => {
-      const subLogs = recent.filter((l) => l.subject === s);
-      const avg = subLogs.length > 0 ? Math.round(subLogs.reduce((sum, l) => sum + l.score, 0) / subLogs.length) : 0;
-      return { subject: SUBJECT_FULL[s], score: avg };
-    });
-  }, [logs]);
 
   const needsAttention = subjectRadar.filter((s) => s.score > 0 && s.score < 85);
 
