@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import CountdownWidget from "@/components/CountdownWidget";
 import StreakWidget from "@/components/StreakWidget";
 import LevelProgress from "@/components/LevelProgress";
@@ -9,7 +10,9 @@ import AIMentorChat from "@/components/AIMentorChat";
 import MockExamTracker from "@/components/MockExamTracker";
 import ClassSchedule from "@/components/ClassSchedule";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, BarChart3, Sparkles, ClipboardCheck, GraduationCap } from "lucide-react";
+import { BookOpen, BarChart3, Sparkles, ClipboardCheck, GraduationCap, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 // Demo data - will be replaced with Supabase
@@ -30,7 +33,10 @@ const WEEKLY_DATA = [
 ];
 
 const Index = () => {
+  const { displayName, role, signOut } = useAuth();
   const [entries, setEntries] = useState(DEMO_ENTRIES);
+
+  const isParent = role === "parent";
 
   const handleLogSubmit = (newEntries: { subject: string; minutes: number; questions: number; score: number }[]) => {
     const today = new Date().toISOString().split("T")[0];
@@ -45,13 +51,31 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="gradient-primary px-4 py-5 sm:px-6">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-primary-foreground">
-            🎓 Pareet's 11+ Prep
-          </h1>
-          <p className="text-primary-foreground/70 text-sm mt-1">
-            Grammar School Exam Tracker & AI Mentor
-          </p>
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-primary-foreground">
+              🎓 Pareet's 11+ Prep
+            </h1>
+            <p className="text-primary-foreground/70 text-sm mt-1">
+              Grammar School Exam Tracker & AI Mentor
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <p className="text-sm font-medium text-primary-foreground">{displayName}</p>
+              <Badge variant="secondary" className="text-xs capitalize">
+                {role}
+              </Badge>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={signOut}
+              className="text-primary-foreground hover:bg-primary-foreground/10"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -102,6 +126,7 @@ const Index = () => {
               subject="Maths"
               icon={<span className="text-xl">🧮</span>}
               accentClass="primary"
+              canManageSchedule={isParent}
             />
             <ClassSchedule
               className="Newell Class"
@@ -109,6 +134,7 @@ const Index = () => {
               subject="11+ Prep"
               icon={<span className="text-xl">📚</span>}
               accentClass="success"
+              canManageSchedule={isParent}
             />
           </TabsContent>
 
