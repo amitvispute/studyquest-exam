@@ -14,6 +14,144 @@ export type Database = {
   }
   public: {
     Tables: {
+      class_entries: {
+        Row: {
+          class_name: string
+          completed: boolean
+          created_at: string
+          date: string
+          homework: string | null
+          id: string
+          notes: string | null
+          topics_covered: string | null
+          user_id: string
+        }
+        Insert: {
+          class_name: string
+          completed?: boolean
+          created_at?: string
+          date: string
+          homework?: string | null
+          id?: string
+          notes?: string | null
+          topics_covered?: string | null
+          user_id: string
+        }
+        Update: {
+          class_name?: string
+          completed?: boolean
+          created_at?: string
+          date?: string
+          homework?: string | null
+          id?: string
+          notes?: string | null
+          topics_covered?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      class_schedules: {
+        Row: {
+          class_name: string
+          created_at: string
+          id: string
+          scheduled_date: string
+          user_id: string
+        }
+        Insert: {
+          class_name: string
+          created_at?: string
+          id?: string
+          scheduled_date: string
+          user_id: string
+        }
+        Update: {
+          class_name?: string
+          created_at?: string
+          id?: string
+          scheduled_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      daily_logs: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          minutes: number
+          questions: number
+          score: number
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          minutes?: number
+          questions?: number
+          score?: number
+          subject: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          minutes?: number
+          questions?: number
+          score?: number
+          subject?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mock_exams: {
+        Row: {
+          created_at: string
+          date: string
+          english_score: number | null
+          id: string
+          maths_score: number | null
+          max_score: number | null
+          notes: string | null
+          nvr_score: number | null
+          provider: string
+          total_score: number | null
+          user_id: string
+          vr_score: number | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          english_score?: number | null
+          id?: string
+          maths_score?: number | null
+          max_score?: number | null
+          notes?: string | null
+          nvr_score?: number | null
+          provider: string
+          total_score?: number | null
+          user_id: string
+          vr_score?: number | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          english_score?: number | null
+          id?: string
+          maths_score?: number | null
+          max_score?: number | null
+          notes?: string | null
+          nvr_score?: number | null
+          provider?: string
+          total_score?: number | null
+          user_id?: string
+          vr_score?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
