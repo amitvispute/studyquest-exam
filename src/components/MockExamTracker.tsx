@@ -5,18 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Plus, ChevronUp } from "lucide-react";
+import { ClipboardCheck, Plus, ChevronUp, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useMockExams } from "@/hooks/useMockExams";
+import { useAuth } from "@/hooks/useAuth";
 
 const MockExamTracker = () => {
+  const { role } = useAuth();
   const { mocks, isLoading, addMock } = useMockExams();
   const [showForm, setShowForm] = useState(false);
+  const [filterDate, setFilterDate] = useState<Date | undefined>();
   const [date, setDate] = useState<Date>();
   const [provider, setProvider] = useState("");
   const [englishScore, setEnglishScore] = useState("");
@@ -26,6 +28,8 @@ const MockExamTracker = () => {
   const [totalScore, setTotalScore] = useState("");
   const [maxScore, setMaxScore] = useState("400");
   const [notes, setNotes] = useState("");
+
+  const isParent = role === "parent";
 
   const handleSubmit = () => {
     if (!date || !provider) {
@@ -74,6 +78,14 @@ const MockExamTracker = () => {
     );
   };
 
+  // Filter mocks by date
+  const filteredMocks = filterDate
+    ? mocks.filter((m) => m.date === format(filterDate, "yyyy-MM-dd"))
+    : mocks;
+
+  // Dates that have scores (for calendar highlighting)
+  const mockDates = mocks.map((m) => new Date(m.date));
+
   if (isLoading) return <div className="text-center text-muted-foreground p-8">Loading...</div>;
 
   return (
@@ -85,13 +97,45 @@ const MockExamTracker = () => {
               <ClipboardCheck className="h-5 w-5 text-primary" />
               Mock Exam Results
             </CardTitle>
-            <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1">
-              {showForm ? <ChevronUp className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {showForm ? "Close" : "Add Result"}
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Calendar filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className={cn("gap-1", filterDate && "text-primary")}>
+                    <CalendarIcon className="h-4 w-4" />
+                    {filterDate ? format(filterDate, "d MMM") : "Filter"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={filterDate}
+                    onSelect={setFilterDate}
+                    className="p-3 pointer-events-auto"
+                    modifiers={{ hasScore: mockDates }}
+                    modifiersClassNames={{ hasScore: "bg-primary/20 font-bold" }}
+                  />
+                  {filterDate && (
+                    <div className="p-2 border-t">
+                      <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>
+                        Clear filter
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+
+              {/* Only parent can add results */}
+              {isParent && (
+                <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1">
+                  {showForm ? <ChevronUp className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {showForm ? "Close" : "Add Result"}
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
-        {showForm && (
+        {showForm && isParent && (
           <CardContent className="border-t border-border pt-4 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -134,31 +178,38 @@ const MockExamTracker = () => {
         )}
       </Card>
       <div className="space-y-3">
-        {mocks.map((mock) => (
-          <Card key={mock.id} className="shadow-card">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="font-semibold text-foreground">{mock.provider}</p>
-                  <p className="text-xs text-muted-foreground">{format(new Date(mock.date), "dd MMM yyyy")}</p>
-                </div>
-                {mock.total_score !== null && mock.max_score !== null && (
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-foreground">{mock.total_score}/{mock.max_score}</p>
-                    <p className="text-xs text-muted-foreground">{Math.round((mock.total_score / mock.max_score) * 100)}%</p>
+        {filteredMocks.length === 0 ? (
+          <div className="text-center text-muted-foreground py-6">
+            <p className="text-3xl mb-2">📋</p>
+            <p>{filterDate ? "No results for this date" : "No mock exam results yet"}</p>
+          </div>
+        ) : (
+          filteredMocks.map((mock) => (
+            <Card key={mock.id} className="shadow-card">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="font-semibold text-foreground">{mock.provider}</p>
+                    <p className="text-xs text-muted-foreground">{format(new Date(mock.date), "dd MMM yyyy")}</p>
                   </div>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {mock.english_score !== null && <span className="text-xs">Eng: {getScoreBadge(mock.english_score)}</span>}
-                {mock.maths_score !== null && <span className="text-xs">Maths: {getScoreBadge(mock.maths_score)}</span>}
-                {mock.vr_score !== null && <span className="text-xs">VR: {getScoreBadge(mock.vr_score)}</span>}
-                {mock.nvr_score !== null && <span className="text-xs">NVR: {getScoreBadge(mock.nvr_score)}</span>}
-              </div>
-              {mock.notes && <p className="text-sm text-muted-foreground italic">{mock.notes}</p>}
-            </CardContent>
-          </Card>
-        ))}
+                  {mock.total_score !== null && mock.max_score !== null && (
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-foreground">{mock.total_score}/{mock.max_score}</p>
+                      <p className="text-xs text-muted-foreground">{Math.round((mock.total_score / mock.max_score) * 100)}%</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {mock.english_score !== null && <span className="text-xs">Eng: {getScoreBadge(mock.english_score)}</span>}
+                  {mock.maths_score !== null && <span className="text-xs">Maths: {getScoreBadge(mock.maths_score)}</span>}
+                  {mock.vr_score !== null && <span className="text-xs">VR: {getScoreBadge(mock.vr_score)}</span>}
+                  {mock.nvr_score !== null && <span className="text-xs">NVR: {getScoreBadge(mock.nvr_score)}</span>}
+                </div>
+                {mock.notes && <p className="text-sm text-muted-foreground italic">{mock.notes}</p>}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );

@@ -5,8 +5,9 @@ import { Send, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import StudentExamMode from "@/components/StudentExamMode";
+import { toast } from "sonner";
 
 interface Message {
   role: "user" | "assistant";
@@ -21,13 +22,16 @@ const QUICK_TOPICS = [
 ];
 
 const StudentAIMentorChat = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Check for active exam
+  const isStudent = role === "student";
+
+  // Check for active exam (student only)
   const { data: activeExam } = useQuery({
     queryKey: ["student_active_exam"],
     queryFn: async () => {
@@ -43,16 +47,77 @@ const StudentAIMentorChat = () => {
         (e: any) => new Date(e.scheduled_start) <= now && new Date(e.scheduled_end) > now
       ) || null;
     },
-    enabled: !!user,
+    enabled: !!user && isStudent,
     refetchInterval: 30000,
   });
+
+  // Bug 3: Credit limit tracking (student only)
+  const { data: creditInfo } = useQuery({
+    queryKey: ["ai_mentor_credit_info"],
+    queryFn: async () => {
+      const today = new Date().toISOString().split("T")[0];
+
+      // Get settings
+      const { data: settings } = await supabase
+        .from("ai_mentor_settings")
+        .select("daily_limit")
+        .eq("student_user_id", user!.id)
+        .single();
+
+      // Get today's usage
+      const { data: usage } = await supabase
+        .from("ai_mentor_usage")
+        .select("message_count")
+        .eq("user_id", user!.id)
+        .eq("date", today)
+        .single();
+
+      return {
+        limit: settings?.daily_limit ?? 20,
+        used: usage?.message_count ?? 0,
+      };
+    },
+    enabled: !!user && isStudent,
+  });
+
+  const isExhausted = isStudent && creditInfo && creditInfo.used >= creditInfo.limit;
+  const isNearLimit = isStudent && creditInfo && creditInfo.used >= creditInfo.limit * 0.8 && !isExhausted;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const incrementUsage = async () => {
+    if (!user || !isStudent) return;
+    const today = new Date().toISOString().split("T")[0];
+    const { data: existing } = await supabase
+      .from("ai_mentor_usage")
+      .select("id, message_count")
+      .eq("user_id", user.id)
+      .eq("date", today)
+      .single();
+
+    if (existing) {
+      await supabase
+        .from("ai_mentor_usage")
+        .update({ message_count: existing.message_count + 1 })
+        .eq("id", existing.id);
+    } else {
+      await supabase
+        .from("ai_mentor_usage")
+        .insert({ user_id: user.id, date: today, message_count: 1 });
+    }
+    queryClient.invalidateQueries({ queryKey: ["ai_mentor_credit_info"] });
+  };
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    // Check credit limit for students
+    if (isStudent && creditInfo && creditInfo.used >= creditInfo.limit) {
+      toast.error("You've used all your chats for today! Come back tomorrow or ask your parent for more. 💬");
+      return;
+    }
 
     const userMsg: Message = { role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
@@ -75,6 +140,15 @@ const StudentAIMentorChat = () => {
       );
 
       if (!resp.ok || !resp.body) throw new Error("Failed to get response");
+
+      // Increment usage for students
+      if (isStudent) {
+        await incrementUsage();
+        // Show warning at 80%
+        if (creditInfo && creditInfo.used + 1 >= creditInfo.limit * 0.8 && creditInfo.used + 1 < creditInfo.limit) {
+          toast.warning(`Running low on chats! ${creditInfo.limit - creditInfo.used - 1} left today 💬`);
+        }
+      }
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -128,30 +202,44 @@ const StudentAIMentorChat = () => {
     }
   };
 
-  // If there's an active exam, show exam mode instead
-  if (activeExam) {
+  // If there's an active exam (student only), show exam mode
+  if (isStudent && activeExam) {
     return <StudentExamMode />;
   }
 
   return (
     <div className="space-y-4">
-      {/* Upcoming exam banner handled by StudentExamMode */}
-      <StudentExamMode />
+      {/* Upcoming exam banner handled by StudentExamMode (student only) */}
+      {isStudent && <StudentExamMode />}
+
+      {/* Credit exhausted banner */}
+      {isExhausted && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 text-center">
+          <p className="text-lg mb-1">😴</p>
+          <p className="font-semibold text-foreground">Chats used up for today!</p>
+          <p className="text-sm text-muted-foreground">Come back tomorrow or ask your parent for more credits.</p>
+        </div>
+      )}
 
       <div className="bg-card rounded-2xl shadow-card border border-border flex flex-col h-[550px]">
         <div className="gradient-primary rounded-t-2xl p-5 flex items-center gap-3">
           <Sparkles className="h-7 w-7 text-primary-foreground" />
-          <div>
+          <div className="flex-1">
             <h3 className="font-bold text-primary-foreground text-xl">11+ Mentor</h3>
             <p className="text-primary-foreground/70 text-sm">Your AI study buddy</p>
           </div>
+          {isStudent && creditInfo && (
+            <span className="text-xs text-primary-foreground/60">
+              {creditInfo.used}/{creditInfo.limit} used
+            </span>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {messages.length === 0 && (
             <div className="text-center py-6">
               <p className="text-5xl mb-3">👋</p>
-              <p className="text-foreground font-semibold text-lg">Hi Pareet! What shall we learn today?</p>
+              <p className="text-foreground font-semibold text-lg">Hi! What shall we learn today?</p>
               <p className="text-base text-muted-foreground mt-1">Pick a topic or ask me anything!</p>
               <div className="grid grid-cols-2 gap-3 mt-5">
                 {QUICK_TOPICS.map((topic) => (
@@ -159,11 +247,12 @@ const StudentAIMentorChat = () => {
                     key={topic.label}
                     variant="outline"
                     size="lg"
-                    className="text-left justify-start min-h-[48px] text-base px-4 py-3"
+                    className="text-left justify-start min-h-[48px] text-xs sm:text-sm px-3 sm:px-4 py-3 whitespace-normal min-w-0"
                     onClick={() => sendMessage(topic.prompt)}
+                    disabled={!!isExhausted}
                   >
-                    <span className="mr-2 text-lg">{topic.emoji}</span>
-                    {topic.label}
+                    <span className="mr-2 text-lg shrink-0">{topic.emoji}</span>
+                    <span className="break-words">{topic.label}</span>
                   </Button>
                 ))}
               </div>
@@ -192,8 +281,14 @@ const StudentAIMentorChat = () => {
 
         <div className="p-4 border-t border-border">
           <form onSubmit={(e) => { e.preventDefault(); sendMessage(input); }} className="flex gap-3">
-            <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask me anything about 11+..." className="flex-1 h-12 text-base" disabled={isLoading} />
-            <Button type="submit" size="icon" disabled={isLoading || !input.trim()} className="h-12 w-12">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={isExhausted ? "Daily limit reached" : "Ask me anything about 11+..."}
+              className="flex-1 h-12 text-base"
+              disabled={isLoading || !!isExhausted}
+            />
+            <Button type="submit" size="icon" disabled={isLoading || !input.trim() || !!isExhausted} className="h-12 w-12">
               <Send className="h-5 w-5" />
             </Button>
           </form>
