@@ -1,47 +1,44 @@
 
 
-# Fix Mock Exam Save Confirmation & History Display
+# Fix Missing UI Elements After Publishing
 
-## Issues
-1. **StudentExamMode**: Saves to `mock_exams` but doesn't show a "results saved" toast separately from "Exam submitted" — and doesn't invalidate `mock_exams` query key, so the Mocks tab won't refresh.
-2. **MockExamTracker**: Only parents can add results — students should also be able to submit external test center results. Once submitted, students see read-only. Parents can add and edit.
-3. **Default view** should show last 7 days, older via calendar with highlighted dates.
-4. **No `updateMock`** mutation exists for parent editing.
+## Root Cause
 
-## Changes
+The `useAuth` hook has a race condition: it sets `loading = false` **before** `fetchUserData` completes. This means `role` is `null` when components first render. While React should re-render when `role` arrives, there are two compounding issues:
 
-### 1. `src/components/StudentExamMode.tsx`
-- After inserting into `mock_exams` (line ~147-158), add error handling with `toast.error` if insert fails, and explicit `toast.success("Results saved successfully! ✅")` on success
-- Add `queryClient.invalidateQueries({ queryKey: ["mock_exams"] })` after successful insert so the Mocks tab immediately shows the new result
+1. In `onAuthStateChange`, `fetchUserData` is deferred via `setTimeout(..., 0)`, and `setLoading(false)` runs immediately
+2. In `getSession`, `fetchUserData` is called but not awaited before `setLoading(false)`
 
-### 2. `src/hooks/useMockExams.tsx`
-- Add `updateMock` mutation for parent edits (update by `id`)
-- Return `updateMock` from the hook
+This causes all role-dependent UI (calendar filter button, edit pencil icon, parent AI mentor tabs) to render with `role === null` initially. On slower connections (like the published site vs local preview), this gap is more pronounced and can cause components to mount without role data.
 
-### 3. `src/components/MockExamTracker.tsx`
-- **Both roles** can see the "Add Result" button and submit form
-- **Student**: result cards are read-only (no Edit button)
-- **Parent**: result cards show an "Edit" button; clicking it pre-fills the form for that mock; submit calls `updateMock`
-- **Default view** (no filter): show only last 7 days of results
-- **Calendar filter**: highlight dates with scores; selecting a date shows that day's results; "Clear" returns to 7-day view
-- Add `editingId` state for parent edit flow
-- Success toast: already shows "Mock exam result saved! 📝" — keep this
+## Fix
+
+### `src/hooks/useAuth.tsx`
+- Await `fetchUserData` before setting `loading = false` in the `getSession` path
+- Remove `setTimeout` wrapper in `onAuthStateChange` — just call `fetchUserData` directly (without `await` to avoid the Supabase deadlock issue, but set loading false only after role is fetched)
+- Add a dedicated `roleLoaded` tracking: don't set `loading = false` until both session AND role are resolved
+
+```text
+Flow before:
+  getSession → setLoading(false) → fetchUserData (async, unresolved)
+  
+Flow after:
+  getSession → fetchUserData (await) → setLoading(false)
+```
+
+### No changes needed to other files
+The MockExamTracker, AIMentorChat, and ParentExamResults components are coded correctly — they just need `role` to be available when they render.
 
 ## Files
 | File | Change |
 |------|--------|
-| `src/components/StudentExamMode.tsx` | Add error handling on mock_exams insert, success toast, invalidate `mock_exams` query |
-| `src/hooks/useMockExams.tsx` | Add `updateMock` mutation |
-| `src/components/MockExamTracker.tsx` | Both roles can add, student read-only after save, parent can edit, 7-day default, calendar filter |
+| `src/hooks/useAuth.tsx` | Fix loading state to wait for role fetch |
 
 ## Test Cases
 | # | Test | Expected |
 |---|------|----------|
-| 1 | Student completes AI mock exam | "Results saved successfully! ✅" toast appears |
-| 2 | Student opens Mocks tab after | New result visible in recent history |
-| 3 | Student manually adds external test result | Form works, toast confirms, result appears read-only |
-| 4 | Parent adds result | Works as before |
-| 5 | Parent clicks Edit on a result | Form pre-fills, save updates the record |
-| 6 | Default view (no filter) | Shows last 7 days only |
-| 7 | Calendar filter on older date | Shows that date's results, dates with data highlighted |
+| 1 | Login as parent, go to Mocks tab | Calendar filter button and edit pencil visible |
+| 2 | Login as parent, go to AI Mentor tab | Four sub-tabs shown (Create, Chat, Results, Credits) |
+| 3 | Login as student, go to Mocks tab | Calendar filter button visible, no edit pencil |
+| 4 | Refresh page while logged in | All role-specific UI appears without flicker |
 
