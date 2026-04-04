@@ -133,6 +133,30 @@ const StudentExamMode = () => {
 
       await supabase.from("ai_mock_exams").update({ status: "completed" }).eq("id", activeExam.id);
 
+      // Bug 2: Auto-save scores to mock_exams table
+      const subjectScores: Record<string, { correct: number; total: number }> = {};
+      questions.forEach((q) => {
+        if (!subjectScores[q.subject]) subjectScores[q.subject] = { correct: 0, total: 0 };
+        subjectScores[q.subject].total++;
+        if (answers[q.id] === q.correct_answer) subjectScores[q.subject].correct++;
+      });
+
+      const totalCorrect = Object.values(subjectScores).reduce((s, v) => s + v.correct, 0);
+      const totalQs = questions.length;
+
+      await supabase.from("mock_exams").insert({
+        user_id: user!.id,
+        date: format(new Date(), "yyyy-MM-dd"),
+        provider: activeExam.title,
+        english_score: subjectScores["english"]?.correct ?? null,
+        maths_score: subjectScores["maths"]?.correct ?? null,
+        vr_score: subjectScores["vr"]?.correct ?? null,
+        nvr_score: subjectScores["nvr"]?.correct ?? null,
+        total_score: totalCorrect,
+        max_score: totalQs,
+        notes: `AI Mock Exam - ${activeExam.subjects.join(", ")}`,
+      });
+
       toast.success("Exam submitted! 🎉");
       setShowResults(true);
       queryClient.invalidateQueries({ queryKey: ["student_exams"] });

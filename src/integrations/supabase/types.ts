@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_mentor_settings: {
+        Row: {
+          daily_limit: number
+          id: string
+          student_user_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          daily_limit?: number
+          id?: string
+          student_user_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          daily_limit?: number
+          id?: string
+          student_user_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      ai_mentor_usage: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          message_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          message_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          message_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_mock_answers: {
         Row: {
           exam_id: string

@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useDailyLogs } from "@/hooks/useDailyLogs";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import CountdownWidget from "@/components/CountdownWidget";
 import StreakWidget from "@/components/StreakWidget";
 import LevelProgress from "@/components/LevelProgress";
@@ -12,7 +14,7 @@ import MockExamTracker from "@/components/MockExamTracker";
 import ClassSchedule from "@/components/ClassSchedule";
 import ParentSummaryDashboard from "@/components/ParentSummaryDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, BarChart3, Sparkles, ClipboardCheck, GraduationCap, LogOut } from "lucide-react";
+import { BookOpen, BarChart3, Sparkles, ClipboardCheck, GraduationCap, LogOut, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -26,10 +28,44 @@ const SUBJECT_FULL: Record<string, string> = {
 };
 
 const Index = () => {
-  const { displayName, role, signOut } = useAuth();
+  const { displayName, role, user, signOut } = useAuth();
   const { logs, addLogs } = useDailyLogs();
 
   const isParent = role === "parent";
+  const isStudent = role === "student";
+
+  // Bug 1: Check for scheduled exams (student only)
+  const { data: pendingExamCount = 0 } = useQuery({
+    queryKey: ["pending_exam_count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("ai_mock_exams")
+        .select("*", { count: "exact", head: true })
+        .eq("student_user_id", user!.id)
+        .eq("status", "scheduled");
+      return count ?? 0;
+    },
+    enabled: !!user && isStudent,
+    refetchInterval: 30000,
+  });
+
+  // Bug 2: Check for today's completed AI exams (student notification on Mocks tab)
+  const { data: todayCompletedCount = 0 } = useQuery({
+    queryKey: ["today_completed_exams"],
+    queryFn: async () => {
+      const today = format(new Date(), "yyyy-MM-dd");
+      const { count } = await supabase
+        .from("ai_mock_exams")
+        .select("*", { count: "exact", head: true })
+        .eq("student_user_id", user!.id)
+        .eq("status", "completed")
+        .gte("scheduled_start", `${today}T00:00:00`)
+        .lte("scheduled_start", `${today}T23:59:59`);
+      return count ?? 0;
+    },
+    enabled: !!user && isStudent,
+    refetchInterval: 30000,
+  });
 
   const handleLogSubmit = (newEntries: { subject: string; minutes: number; questions: number; score: number }[]) => {
     addLogs.mutate(newEntries, {
@@ -100,8 +136,13 @@ const Index = () => {
             <TabsTrigger value="dashboard" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
               <BookOpen className="h-5 w-5" /><span className="hidden sm:inline">Dashboard</span><span className="sm:hidden">Home</span>
             </TabsTrigger>
-            <TabsTrigger value="mocks" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
+            <TabsTrigger value="mocks" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px] relative">
               <ClipboardCheck className="h-5 w-5" /><span>Mocks</span>
+              {isStudent && todayCompletedCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-success text-[10px] font-bold text-success-foreground animate-pulse">
+                  {todayCompletedCount}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="classes" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
               <GraduationCap className="h-5 w-5" /><span>Classes</span>
@@ -109,8 +150,11 @@ const Index = () => {
             <TabsTrigger value="weekly" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
               <BarChart3 className="h-5 w-5" /><span>Weekly</span>
             </TabsTrigger>
-            <TabsTrigger value="mentor" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px]">
+            <TabsTrigger value="mentor" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px] relative">
               <Sparkles className="h-5 w-5" /><span>AI Mentor</span>
+              {isStudent && pendingExamCount > 0 && (
+                <Star className="absolute -top-1 -right-1 h-5 w-5 text-warning fill-warning animate-pulse drop-shadow-lg" />
+              )}
             </TabsTrigger>
           </TabsList>
 
