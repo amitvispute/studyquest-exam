@@ -153,7 +153,7 @@ const Index = () => {
             <TabsTrigger value="mentor" className="rounded-lg text-sm font-semibold data-[state=active]:shadow-card gap-2 flex-col sm:flex-row h-full min-h-[44px] relative">
               <Sparkles className="h-5 w-5" /><span>AI Mentor</span>
               {isStudent && pendingExamCount > 0 && (
-                <Star className="absolute -top-1 -right-1 h-5 w-5 text-yellow-400 fill-yellow-400 animate-pulse drop-shadow-lg" />
+                <Star className="absolute -top-1 -right-1 h-5 w-5 text-warning fill-warning animate-pulse drop-shadow-lg" />
               )}
             </TabsTrigger>
           </TabsList>
