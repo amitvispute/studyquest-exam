@@ -144,7 +144,7 @@ const StudentExamMode = () => {
       const totalCorrect = Object.values(subjectScores).reduce((s, v) => s + v.correct, 0);
       const totalQs = questions.length;
 
-      await supabase.from("mock_exams").insert({
+      const { error: mockSaveError } = await supabase.from("mock_exams").insert({
         user_id: user!.id,
         date: format(new Date(), "yyyy-MM-dd"),
         provider: activeExam.title,
@@ -156,6 +156,14 @@ const StudentExamMode = () => {
         max_score: totalQs,
         notes: `AI Mock Exam - ${activeExam.subjects.join(", ")}`,
       });
+
+      if (mockSaveError) {
+        console.error("Failed to save mock result:", mockSaveError);
+        toast.error("Exam submitted but failed to save scores");
+      } else {
+        toast.success("Results saved successfully! ✅");
+        queryClient.invalidateQueries({ queryKey: ["mock_exams"] });
+      }
 
       toast.success("Exam submitted! 🎉");
       setShowResults(true);
