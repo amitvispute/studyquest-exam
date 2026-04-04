@@ -5,20 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Plus, ChevronUp, CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { ClipboardCheck, Plus, ChevronUp, CalendarIcon, Pencil } from "lucide-react";
+import { format, subDays, isAfter } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useMockExams } from "@/hooks/useMockExams";
+import { useMockExams, MockExam } from "@/hooks/useMockExams";
 import { useAuth } from "@/hooks/useAuth";
 
 const MockExamTracker = () => {
   const { role } = useAuth();
-  const { mocks, isLoading, addMock } = useMockExams();
+  const { mocks, isLoading, addMock, updateMock } = useMockExams();
   const [showForm, setShowForm] = useState(false);
   const [filterDate, setFilterDate] = useState<Date | undefined>();
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Form state
   const [date, setDate] = useState<Date>();
   const [provider, setProvider] = useState("");
   const [englishScore, setEnglishScore] = useState("");
@@ -31,40 +34,71 @@ const MockExamTracker = () => {
 
   const isParent = role === "parent";
 
+  const resetForm = () => {
+    setDate(undefined);
+    setProvider("");
+    setEnglishScore("");
+    setMathsScore("");
+    setVrScore("");
+    setNvrScore("");
+    setTotalScore("");
+    setMaxScore("400");
+    setNotes("");
+    setEditingId(null);
+  };
+
+  const handleEdit = (mock: MockExam) => {
+    setEditingId(mock.id);
+    setDate(new Date(mock.date));
+    setProvider(mock.provider);
+    setEnglishScore(mock.english_score?.toString() ?? "");
+    setMathsScore(mock.maths_score?.toString() ?? "");
+    setVrScore(mock.vr_score?.toString() ?? "");
+    setNvrScore(mock.nvr_score?.toString() ?? "");
+    setTotalScore(mock.total_score?.toString() ?? "");
+    setMaxScore(mock.max_score?.toString() ?? "400");
+    setNotes(mock.notes || "");
+    setShowForm(true);
+  };
+
   const handleSubmit = () => {
     if (!date || !provider) {
       toast.error("Please enter date and exam provider");
       return;
     }
 
-    addMock.mutate(
-      {
-        date: format(date, "yyyy-MM-dd"),
-        provider,
-        english_score: englishScore ? Number(englishScore) : null,
-        maths_score: mathsScore ? Number(mathsScore) : null,
-        vr_score: vrScore ? Number(vrScore) : null,
-        nvr_score: nvrScore ? Number(nvrScore) : null,
-        total_score: totalScore ? Number(totalScore) : null,
-        max_score: maxScore ? Number(maxScore) : null,
-        notes: notes || "",
-      },
-      {
+    const payload = {
+      date: format(date, "yyyy-MM-dd"),
+      provider,
+      english_score: englishScore ? Number(englishScore) : null,
+      maths_score: mathsScore ? Number(mathsScore) : null,
+      vr_score: vrScore ? Number(vrScore) : null,
+      nvr_score: nvrScore ? Number(nvrScore) : null,
+      total_score: totalScore ? Number(totalScore) : null,
+      max_score: maxScore ? Number(maxScore) : null,
+      notes: notes || "",
+    };
+
+    if (editingId) {
+      updateMock.mutate(
+        { id: editingId, ...payload },
+        {
+          onSuccess: () => {
+            setShowForm(false);
+            resetForm();
+            toast.success("Mock exam result updated! ✅");
+          },
+        }
+      );
+    } else {
+      addMock.mutate(payload, {
         onSuccess: () => {
           setShowForm(false);
-          setDate(undefined);
-          setProvider("");
-          setEnglishScore("");
-          setMathsScore("");
-          setVrScore("");
-          setNvrScore("");
-          setTotalScore("");
-          setMaxScore("400");
-          setNotes("");
-          toast.success("Mock exam result saved! 📝");
+          resetForm();
+          toast.success("Results saved successfully! ✅");
         },
-      }
-    );
+      });
+    }
   };
 
   const getScoreBadge = (score: number | null, max: number = 100) => {
@@ -78,10 +112,11 @@ const MockExamTracker = () => {
     );
   };
 
-  // Filter mocks by date
+  // Default: last 7 days; or filter by specific date
+  const sevenDaysAgo = subDays(new Date(), 7);
   const filteredMocks = filterDate
     ? mocks.filter((m) => m.date === format(filterDate, "yyyy-MM-dd"))
-    : mocks;
+    : mocks.filter((m) => isAfter(new Date(m.date), sevenDaysAgo));
 
   // Dates that have scores (for calendar highlighting)
   const mockDates = mocks.map((m) => new Date(m.date));
@@ -98,7 +133,6 @@ const MockExamTracker = () => {
               Mock Exam Results
             </CardTitle>
             <div className="flex items-center gap-2">
-              {/* Calendar filter */}
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className={cn("gap-1", filterDate && "text-primary")}>
@@ -118,24 +152,25 @@ const MockExamTracker = () => {
                   {filterDate && (
                     <div className="p-2 border-t">
                       <Button variant="ghost" size="sm" className="w-full" onClick={() => setFilterDate(undefined)}>
-                        Clear filter
+                        Clear filter (show last 7 days)
                       </Button>
                     </div>
                   )}
                 </PopoverContent>
               </Popover>
 
-              {/* Only parent can add results */}
-              {isParent && (
-                <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1">
-                  {showForm ? <ChevronUp className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                  {showForm ? "Close" : "Add Result"}
-                </Button>
-              )}
+              {/* Both roles can add results */}
+              <Button size="sm" onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }} className="gap-1">
+                {showForm ? <ChevronUp className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {showForm ? "Close" : "Add Result"}
+              </Button>
             </div>
           </div>
+          {!filterDate && (
+            <p className="text-xs text-muted-foreground mt-1">Showing last 7 days</p>
+          )}
         </CardHeader>
-        {showForm && isParent && (
+        {showForm && (
           <CardContent className="border-t border-border pt-4 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -171,8 +206,8 @@ const MockExamTracker = () => {
               <Label className="text-sm">Notes</Label>
               <Textarea placeholder="Any observations, areas to improve..." value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-[80px]" />
             </div>
-            <Button onClick={handleSubmit} disabled={addMock.isPending} className="w-full h-12 text-base">
-              {addMock.isPending ? "Saving..." : "Save Mock Result"}
+            <Button onClick={handleSubmit} disabled={addMock.isPending || updateMock.isPending} className="w-full h-12 text-base">
+              {addMock.isPending || updateMock.isPending ? "Saving..." : editingId ? "Update Result" : "Save Mock Result"}
             </Button>
           </CardContent>
         )}
@@ -181,7 +216,7 @@ const MockExamTracker = () => {
         {filteredMocks.length === 0 ? (
           <div className="text-center text-muted-foreground py-6">
             <p className="text-3xl mb-2">📋</p>
-            <p>{filterDate ? "No results for this date" : "No mock exam results yet"}</p>
+            <p>{filterDate ? "No results for this date" : "No results in the last 7 days"}</p>
           </div>
         ) : (
           filteredMocks.map((mock) => (
@@ -192,12 +227,19 @@ const MockExamTracker = () => {
                     <p className="font-semibold text-foreground">{mock.provider}</p>
                     <p className="text-xs text-muted-foreground">{format(new Date(mock.date), "dd MMM yyyy")}</p>
                   </div>
-                  {mock.total_score !== null && mock.max_score !== null && (
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-foreground">{mock.total_score}/{mock.max_score}</p>
-                      <p className="text-xs text-muted-foreground">{Math.round((mock.total_score / mock.max_score) * 100)}%</p>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {mock.total_score !== null && mock.max_score !== null && (
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-foreground">{mock.total_score}/{mock.max_score}</p>
+                        <p className="text-xs text-muted-foreground">{Math.round((mock.total_score / mock.max_score) * 100)}%</p>
+                      </div>
+                    )}
+                    {isParent && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(mock)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {mock.english_score !== null && <span className="text-xs">Eng: {getScoreBadge(mock.english_score)}</span>}
