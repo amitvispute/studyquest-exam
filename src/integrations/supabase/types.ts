@@ -373,6 +373,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_mentor_usage: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "parent" | "student"
