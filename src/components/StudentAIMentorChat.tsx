@@ -89,24 +89,7 @@ const StudentAIMentorChat = () => {
 
   const incrementUsage = async () => {
     if (!user || !isStudent) return;
-    const today = new Date().toISOString().split("T")[0];
-    const { data: existing } = await supabase
-      .from("ai_mentor_usage")
-      .select("id, message_count")
-      .eq("user_id", user.id)
-      .eq("date", today)
-      .single();
-
-    if (existing) {
-      await supabase
-        .from("ai_mentor_usage")
-        .update({ message_count: existing.message_count + 1 })
-        .eq("id", existing.id);
-    } else {
-      await supabase
-        .from("ai_mentor_usage")
-        .insert({ user_id: user.id, date: today, message_count: 1 });
-    }
+    await supabase.rpc("increment_mentor_usage");
     queryClient.invalidateQueries({ queryKey: ["ai_mentor_credit_info"] });
   };
 
