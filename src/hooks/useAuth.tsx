@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -30,24 +30,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<AppRole | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const fetchIdRef = useRef(0);
 
-  const fetchUserData = async (userId: string) => {
-    const [{ data: roleData }, { data: profileData }] = await Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", userId).single(),
-      supabase.from("profiles").select("display_name").eq("id", userId).single(),
-    ]);
-    setRole((roleData?.role as AppRole) ?? null);
-    setDisplayName(profileData?.display_name ?? null);
-  };
-
+  // Phase A: session restore only
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchUserData(session.user.id);
-        } else {
+        if (!session?.user) {
           setRole(null);
           setDisplayName(null);
         }
@@ -55,17 +46,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchUserData(session.user.id);
-      }
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Phase B: fetch role & profile separately
+  useEffect(() => {
+    if (!user?.id) {
+      setRole(null);
+      setDisplayName(null);
+      return;
+    }
+
+    const currentFetchId = ++fetchIdRef.current;
+
+    const fetchUserData = async () => {
+      try {
+        const [{ data: roleData }, { data: profileData }] = await Promise.all([
+          supabase.from("user_roles").select("role").eq("user_id", user.id).single(),
+          supabase.from("profiles").select("display_name").eq("id", user.id).single(),
+        ]);
+        if (fetchIdRef.current !== currentFetchId) return; // stale
+        setRole((roleData?.role as AppRole) ?? null);
+        setDisplayName(profileData?.display_name ?? null);
+      } catch {
+        if (fetchIdRef.current !== currentFetchId) return;
+        setRole(null);
+        setDisplayName(null);
+      }
+    };
+
+    fetchUserData();
+  }, [user?.id]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
