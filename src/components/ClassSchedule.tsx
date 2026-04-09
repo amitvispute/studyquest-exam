@@ -66,7 +66,10 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
     if (!selectedDate) return;
     upsertEntry.mutate(
       { date: format(selectedDate, "yyyy-MM-dd"), topics_covered: topicsCovered, homework, notes },
-      { onSuccess: () => { setDialogOpen(false); toast.success(`${classTitle} class details saved! ✅`); } }
+      {
+        onSuccess: () => { setDialogOpen(false); toast.success(`${classTitle} class details saved! ✅`); },
+        onError: (err) => { toast.error(`Failed to save class details: ${err.message}`); },
+      }
     );
   };
 
