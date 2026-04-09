@@ -5,10 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Plus, ChevronUp, CalendarIcon, Pencil } from "lucide-react";
+import { ClipboardCheck, Plus, ChevronUp, CalendarIcon, Pencil, Trash2 } from "lucide-react";
 import { format, subDays, isAfter } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useMockExams, MockExam } from "@/hooks/useMockExams";
@@ -16,10 +26,12 @@ import { useAuth } from "@/hooks/useAuth";
 
 const MockExamTracker = () => {
   const { role } = useAuth();
-  const { mocks, isLoading, addMock, updateMock } = useMockExams();
+  const { mocks, isLoading, addMock, updateMock, deleteMock } = useMockExams();
   const [showForm, setShowForm] = useState(false);
   const [filterDate, setFilterDate] = useState<Date | undefined>();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MockExam | null>(null);
+  const [deletionLog, setDeletionLog] = useState<string[]>([]);
 
   // Form state
   const [date, setDate] = useState<Date>();
@@ -59,6 +71,26 @@ const MockExamTracker = () => {
     setMaxScore(mock.max_score?.toString() ?? "400");
     setNotes(mock.notes || "");
     setShowForm(true);
+  };
+
+  const handleDelete = (mock: MockExam) => {
+    setDeleteTarget(mock);
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    const label = `🗑️ ${deleteTarget.provider} for ${format(new Date(deleteTarget.date), "dd MMM")} was deleted`;
+    deleteMock.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast.success("Mock exam result deleted");
+        setDeletionLog((prev) => [...prev, label]);
+        setDeleteTarget(null);
+      },
+      onError: (err) => {
+        toast.error(`Failed to delete: ${err.message}`);
+        setDeleteTarget(null);
+      },
+    });
   };
 
   const handleSubmit = () => {
@@ -235,9 +267,14 @@ const MockExamTracker = () => {
                       </div>
                     )}
                     {isParent && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(mock)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(mock)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => handleDelete(mock)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -252,7 +289,34 @@ const MockExamTracker = () => {
             </Card>
           ))
         )}
+
+        {deletionLog.length > 0 && (
+          <div className="border-t border-border pt-3 mt-3 space-y-1">
+            <p className="text-xs font-semibold text-muted-foreground">── Deletion Log ──</p>
+            {deletionLog.map((log, i) => (
+              <p key={i} className="text-sm text-muted-foreground italic">{log}</p>
+            ))}
+          </div>
+        )}
       </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Mock Exam Result</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the {deleteTarget?.provider} result for{" "}
+              {deleteTarget ? format(new Date(deleteTarget.date), "dd MMM yyyy") : ""}? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
