@@ -7,8 +7,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, BookOpen, PenLine, Lock } from "lucide-react";
-import { format, isSameDay, parseISO } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, BookOpen, PenLine, Lock, Trash2 } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { useClassData } from "@/hooks/useClassData";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,8 +33,9 @@ interface ClassScheduleProps {
 }
 
 const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentClass, canManageSchedule = true }: ClassScheduleProps) => {
-  const { schedules, entries, isLoading, addScheduleDate, removeScheduleDate, upsertEntry } = useClassData(classTitle);
+  const { schedules, entries, isLoading, addScheduleDate, removeScheduleDate, upsertEntry, deleteEntry } = useClassData(classTitle);
   const { role } = useAuth();
+  const isParent = role === "parent";
   const isStudent = role === "student";
   const [isAddingDates, setIsAddingDates] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -33,6 +44,8 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
   const [topicsCovered, setTopicsCovered] = useState("");
   const [homework, setHomework] = useState("");
   const [notes, setNotes] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; date: string } | null>(null);
+  const [deletionLog, setDeletionLog] = useState<string[]>([]);
 
   const scheduledDates = schedules.map((s) => parseISO(s.scheduled_date));
 
@@ -71,6 +84,26 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
         onError: (err) => { toast.error(`Failed to save class details: ${err.message}`); },
       }
     );
+  };
+
+  const handleDeleteEntry = (entry: { id: string; date: string }) => {
+    setDeleteTarget(entry);
+  };
+
+  const confirmDeleteEntry = () => {
+    if (!deleteTarget) return;
+    const label = `🗑️ ${classTitle} entry for ${format(parseISO(deleteTarget.date), "dd MMM")} deleted`;
+    deleteEntry.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        toast.success("Class entry deleted");
+        setDeletionLog((prev) => [...prev, label]);
+        setDeleteTarget(null);
+      },
+      onError: (err) => {
+        toast.error(`Failed to delete: ${err.message}`);
+        setDeleteTarget(null);
+      },
+    });
   };
 
   const getEntryForDate = (date: Date) => entries.find((e) => e.date === format(date, "yyyy-MM-dd"));
@@ -140,13 +173,29 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
               <div key={entry.id} className="rounded-lg border border-border p-3 bg-card text-sm space-y-1">
                 <div className="flex justify-between items-center">
                   <span className="font-medium text-foreground">{format(parseISO(entry.date), "dd MMM yyyy")}</span>
-                  <Badge variant="secondary" className="bg-success/20 text-success text-xs">Done</Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary" className="bg-success/20 text-success text-xs">Done</Badge>
+                    {isParent && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" onClick={() => handleDeleteEntry({ id: entry.id, date: entry.date })}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 {entry.topics_covered && <p className="text-muted-foreground"><BookOpen className="inline h-3 w-3 mr-1" />Topics: {entry.topics_covered}</p>}
                 {entry.homework && <p className="text-muted-foreground"><PenLine className="inline h-3 w-3 mr-1" />Homework: {entry.homework}</p>}
                 {entry.notes && <p className="text-muted-foreground italic">📝 {entry.notes}</p>}
               </div>
             ))}
+
+            {deletionLog.length > 0 && (
+              <div className="border-t border-border pt-3 mt-3 space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground">── Deletion Log ──</p>
+                {deletionLog.map((log, i) => (
+                  <p key={i} className="text-sm text-muted-foreground italic">{log}</p>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
@@ -183,6 +232,24 @@ const ClassSchedule = ({ className: classTitle, teacher, subject, icon, accentCl
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Class Entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the {classTitle} entry for{" "}
+              {deleteTarget ? format(parseISO(deleteTarget.date), "dd MMM yyyy") : ""}? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

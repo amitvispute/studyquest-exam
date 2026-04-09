@@ -54,5 +54,16 @@ export const useMockExams = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mock_exams"] }),
   });
 
-  return { mocks, isLoading, addMock, updateMock };
+  const deleteMock = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("mock_exams")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["mock_exams"] }),
+  });
+
+  return { mocks, isLoading, addMock, updateMock, deleteMock };
 };

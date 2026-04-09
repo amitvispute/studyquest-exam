@@ -112,6 +112,17 @@ export const useClassData = (className: string) => {
     },
   });
 
+  const deleteEntry = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("class_entries")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["class_entries", className] }),
+  });
+
   return {
     schedules,
     entries,
@@ -119,5 +130,6 @@ export const useClassData = (className: string) => {
     addScheduleDate,
     removeScheduleDate,
     upsertEntry,
+    deleteEntry,
   };
 };
