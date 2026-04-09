@@ -212,6 +212,20 @@ const StudentExamMode = () => {
             📊 Review Last Exam Results
           </Button>
         )}
+        {expiredExams.length > 0 && (
+          <div className="bg-muted/50 border border-border rounded-2xl p-4">
+            <p className="font-semibold text-foreground mb-2">⏰ Missed Exams</p>
+            {expiredExams.map((e) => (
+              <div key={e.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{e.title}</p>
+                  <p className="text-xs text-muted-foreground">{format(new Date(e.scheduled_start), "d MMM yyyy, HH:mm")}</p>
+                </div>
+                <Badge variant="destructive" className="text-xs">Not Completed</Badge>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
