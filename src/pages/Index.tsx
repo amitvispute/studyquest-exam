@@ -42,7 +42,8 @@ const Index = () => {
         .from("ai_mock_exams")
         .select("*", { count: "exact", head: true })
         .eq("student_user_id", user!.id)
-        .eq("status", "scheduled");
+        .eq("status", "scheduled")
+        .gt("scheduled_end", new Date().toISOString());
       return count ?? 0;
     },
     enabled: !!user && isStudent,

@@ -75,7 +75,14 @@ export const useClassData = (className: string) => {
 
   const upsertEntry = useMutation({
     mutationFn: async (entry: { date: string; topics_covered: string; homework: string; notes: string }) => {
-      const existing = entries.find((e) => e.date === entry.date);
+      // Fetch existing entry from DB directly (not cache) to handle cross-user entries
+      const { data: existingRows } = await supabase
+        .from("class_entries")
+        .select("id")
+        .eq("class_name", className)
+        .eq("date", entry.date)
+        .limit(1);
+      const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
       if (existing) {
         const { error } = await supabase
           .from("class_entries")
