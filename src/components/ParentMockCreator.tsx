@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Plus, Clock } from "lucide-react";
+import { CalendarIcon, Plus, Clock, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const SUBJECTS = [
   { key: "english", label: "English", emoji: "📖" },
@@ -34,8 +44,9 @@ const ParentMockCreator = () => {
   const [title, setTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [deleteExamId, setDeleteExamId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Fetch student user id (first student in profiles)
   const { data: studentId } = useQuery({
     queryKey: ["student_user_id"],
     queryFn: async () => {
@@ -50,7 +61,6 @@ const ParentMockCreator = () => {
     enabled: !!user,
   });
 
-  // Fetch existing mock exams
   const { data: exams = [] } = useQuery({
     queryKey: ["ai_mock_exams"],
     queryFn: async () => {
@@ -121,12 +131,32 @@ const ParentMockCreator = () => {
     }
   };
 
+  const handleDeleteExam = async () => {
+    if (!deleteExamId) return;
+    setIsDeleting(true);
+    try {
+      await supabase.from("ai_mock_answers").delete().eq("exam_id", deleteExamId);
+      await supabase.from("ai_mock_questions").delete().eq("exam_id", deleteExamId);
+      const { error } = await supabase.from("ai_mock_exams").delete().eq("id", deleteExamId);
+      if (error) throw error;
+      toast.success("Mock exam deleted successfully 🗑️");
+      queryClient.invalidateQueries({ queryKey: ["ai_mock_exams"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete exam");
+    } finally {
+      setIsDeleting(false);
+      setDeleteExamId(null);
+    }
+  };
+
   const statusColor: Record<string, string> = {
     scheduled: "bg-primary/10 text-primary",
     in_progress: "bg-warning/10 text-warning",
     completed: "bg-success/10 text-success",
     reviewed: "bg-muted text-muted-foreground",
   };
+
+  const deleteExam = exams.find((e: any) => e.id === deleteExamId);
 
   return (
     <div className="bg-card rounded-2xl shadow-card border border-border">
@@ -213,7 +243,6 @@ const ParentMockCreator = () => {
           </div>
         )}
 
-        {/* Exam List */}
         {exams.length > 0 && (
           <div className="space-y-2 mt-4">
             <h4 className="font-semibold text-foreground text-sm">📋 Scheduled Exams</h4>
@@ -226,12 +255,42 @@ const ParentMockCreator = () => {
                     {format(new Date(exam.scheduled_start), "d MMM, HH:mm")} – {format(new Date(exam.scheduled_end), "HH:mm")}
                   </p>
                 </div>
-                <Badge className={statusColor[exam.status] || ""} variant="secondary">{exam.status}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className={statusColor[exam.status] || ""} variant="secondary">{exam.status}</Badge>
+                  <button
+                    onClick={() => setDeleteExamId(exam.id)}
+                    className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+                    title="Delete exam"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!deleteExamId} onOpenChange={(open) => !open && setDeleteExamId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Mock Exam?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{deleteExam?.title}" and all its questions and answers. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteExam}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
