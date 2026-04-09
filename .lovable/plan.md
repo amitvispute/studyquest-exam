@@ -1,80 +1,32 @@
 
 
-# Visual Mockup: Delete Icon & Deletion Log
+# Fix: Student Can't See Parent-Entered Mock Exam Data
 
-## Mock Exam Card (Parent View)
+## Problem
+When a parent enters mock exam results, the `user_id` column is set to the parent's ID. The student's SELECT policy only allows reading rows where `auth.uid() = user_id`, so parent-entered data is invisible to the student.
 
-```text
-┌─────────────────────────────────────────────┐
-│  GL Assessment                   285/400    │
-│  08 Apr 2026                      71%       │
-│                                  ✏️  🗑️     │
-│  Eng: 72  Maths: 68  VR: 75  NVR: 70       │
-│  Good attempt, needs VR practice            │
-└─────────────────────────────────────────────┘
+## Root Cause
+Missing RLS policy — there's no "Students can read all mock exams" policy (same issue that was fixed for `class_entries` earlier).
 
-  ✏️ = existing pencil edit icon
-  🗑️ = NEW red trash icon (same size as pencil)
+## Fix
+Add one RLS policy via migration:
+
+```sql
+CREATE POLICY "Students can read all mock exams"
+ON public.mock_exams
+FOR SELECT
+TO authenticated
+USING (has_role(auth.uid(), 'student'::app_role));
 ```
 
-Clicking 🗑️ opens a confirmation dialog:
+## Files Changed
+| File | Change |
+|------|--------|
+| Migration SQL | Add student SELECT policy on `mock_exams` |
 
-```text
-┌─────────────────────────────────────┐
-│  Delete Mock Exam Result            │
-│                                     │
-│  Are you sure you want to delete    │
-│  the GL Assessment result for       │
-│  08 Apr 2026? This cannot be undone.│
-│                                     │
-│         [Cancel]   [Delete]         │
-│                     (red)           │
-└─────────────────────────────────────┘
-```
+No code changes needed — the query in `useMockExams.tsx` already fetches all rows; it's purely the RLS blocking visibility.
 
-After deletion, at the bottom of the recents list:
-
-```text
-┌─────────────────────────────────────────────┐
-│  Recent Results                             │
-│  ─────────────────────────────────────      │
-│  (remaining exam cards...)                  │
-│                                             │
-│  ─── Deletion Log ───                       │
-│  🗑️ GL Assessment for 08 Apr was deleted    │
-│  🗑️ Bond Paper for 05 Apr was deleted       │
-└─────────────────────────────────────────────┘
-```
-
-## Class Entry Card (Parent View)
-
-```text
-┌─────────────────────────────────────────────┐
-│  08 Apr 2026                     Done  🗑️   │
-│  📖 Topics: Fractions, Decimals             │
-│  ✏️ Homework: Page 25-30                    │
-│  📝 Good progress today                     │
-└─────────────────────────────────────────────┘
-```
-
-The 🗑️ sits next to the "Done" badge on the top-right. Same confirmation dialog pattern. After deletion:
-
-```text
-│  Recent Classes                             │
-│  ─────────────────────────────────────      │
-│  (remaining class entry cards...)           │
-│                                             │
-│  ─── Deletion Log ───                       │
-│  🗑️ Amruta Maths entry for 08 Apr deleted  │
-└─────────────────────────────────────────────┘
-```
-
-## Student View (No Changes)
-
-Students see the same cards but **without** the ✏️ or 🗑️ icons — no edit or delete capability.
-
-## Styling Notes
-- Trash icon: `Trash2` from lucide-react, `h-4 w-4`, red-tinted on hover (`text-destructive`)
-- Deletion log entries: `text-sm text-muted-foreground italic`, separated by a thin border-top
-- Confirmation dialog: uses existing `AlertDialog` component with destructive variant button
+## Test
+1. Parent enters mock exam for 09-Apr
+2. Student logs in → Mocks tab → sees the 09-Apr entry in recents
 
