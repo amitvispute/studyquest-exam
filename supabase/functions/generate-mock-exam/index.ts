@@ -103,10 +103,39 @@ serve(async (req) => {
     }
 
     const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("No questions generated");
+    console.log("AI response structure:", JSON.stringify({
+      hasChoices: !!aiData.choices,
+      choiceCount: aiData.choices?.length,
+      hasToolCalls: !!aiData.choices?.[0]?.message?.tool_calls,
+      toolCallCount: aiData.choices?.[0]?.message?.tool_calls?.length,
+      hasContent: !!aiData.choices?.[0]?.message?.content,
+      finishReason: aiData.choices?.[0]?.finish_reason,
+    }));
 
-    const { questions } = JSON.parse(toolCall.function.arguments);
+    let questions: any[];
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall) {
+      questions = JSON.parse(toolCall.function.arguments).questions;
+    } else {
+      // Fallback: try to parse questions from message content
+      const content = aiData.choices?.[0]?.message?.content || "";
+      console.log("No tool_calls, attempting content parse. Content length:", content.length);
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        questions = JSON.parse(jsonMatch[0]);
+      } else {
+        // Try parsing as object with questions key
+        const objMatch = content.match(/\{[\s\S]*"questions"[\s\S]*\}/);
+        if (objMatch) {
+          questions = JSON.parse(objMatch[0]).questions;
+        } else {
+          console.error("Could not extract questions from content:", content.substring(0, 500));
+          throw new Error("No questions generated");
+        }
+      }
+    }
+
+    if (!questions || questions.length === 0) throw new Error("No questions generated");
 
     // Insert questions
     const questionRows = questions.map((q: any, i: number) => ({
