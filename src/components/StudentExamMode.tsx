@@ -61,6 +61,9 @@ const StudentExamMode = () => {
   const upcomingExams = exams.filter(
     (e) => new Date(e.scheduled_start) > now && e.status === "scheduled"
   );
+  const expiredExams = exams.filter(
+    (e) => e.status === "expired"
+  );
 
   const examToShow = activeExam || completedExam;
 
