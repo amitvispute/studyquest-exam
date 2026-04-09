@@ -100,7 +100,9 @@ export const useClassData = (className: string) => {
         if (error) throw error;
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["class_entries", className] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["class_entries", className] });
+    },
   });
 
   return {
