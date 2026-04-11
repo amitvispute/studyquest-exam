@@ -1,13 +1,19 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Sparkles } from "lucide-react";
+import { Send, Sparkles, CalendarIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import StudentExamMode from "@/components/StudentExamMode";
+import ExamHistoryCard from "@/components/ExamHistoryCard";
+import MockExamResults from "@/components/MockExamResults";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
+import { format, isSameDay } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Message {
   role: "user" | "assistant";
@@ -27,6 +33,8 @@ const StudentAIMentorChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [reviewExamId, setReviewExamId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isStudent = role === "student";
@@ -51,27 +59,22 @@ const StudentAIMentorChat = () => {
     refetchInterval: 30000,
   });
 
-  // Bug 3: Credit limit tracking (student only)
+  // Credit limit tracking (student only)
   const { data: creditInfo } = useQuery({
     queryKey: ["ai_mentor_credit_info"],
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
-
-      // Get settings
       const { data: settings } = await supabase
         .from("ai_mentor_settings")
         .select("daily_limit")
         .eq("student_user_id", user!.id)
         .single();
-
-      // Get today's usage
       const { data: usage } = await supabase
         .from("ai_mentor_usage")
         .select("message_count")
         .eq("user_id", user!.id)
         .eq("date", today)
         .single();
-
       return {
         limit: settings?.daily_limit ?? 20,
         used: usage?.message_count ?? 0,
@@ -80,8 +83,119 @@ const StudentAIMentorChat = () => {
     enabled: !!user && isStudent,
   });
 
+  // Fetch all exams for history
+  const { data: allExams = [] } = useQuery({
+    queryKey: ["student_exams"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_mock_exams")
+        .select("*")
+        .eq("student_user_id", user!.id)
+        .order("scheduled_start", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!user && isStudent,
+  });
+
+  const historyExams = allExams.filter(
+    (e) => e.status === "completed" || e.status === "expired"
+  );
+
+  const completedExamIds = historyExams.filter(e => e.status === "completed").map(e => e.id);
+
+  // Fetch answers & questions for score breakdowns
+  const { data: allAnswers = [] } = useQuery({
+    queryKey: ["all_exam_answers", completedExamIds],
+    queryFn: async () => {
+      if (completedExamIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("ai_mock_answers")
+        .select("exam_id, question_id, is_correct")
+        .in("exam_id", completedExamIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: completedExamIds.length > 0,
+  });
+
+  const { data: allQuestions = [] } = useQuery({
+    queryKey: ["all_exam_questions", completedExamIds],
+    queryFn: async () => {
+      if (completedExamIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("ai_mock_questions")
+        .select("id, exam_id, subject")
+        .in("exam_id", completedExamIds);
+      if (error) throw error;
+      return data;
+    },
+    enabled: completedExamIds.length > 0,
+  });
+
+  // For review mode: fetch full questions + answers
+  const { data: reviewQuestions = [] } = useQuery({
+    queryKey: ["exam_questions", reviewExamId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_mock_questions")
+        .select("*")
+        .eq("exam_id", reviewExamId!)
+        .order("question_number");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!reviewExamId,
+  });
+
+  const { data: reviewAnswers = [] } = useQuery({
+    queryKey: ["exam_answers", reviewExamId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_mock_answers")
+        .select("*")
+        .eq("exam_id", reviewExamId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!reviewExamId,
+  });
+
+  const reviewAnswerMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    reviewAnswers.forEach((a: any) => { map[a.question_id] = a.student_answer; });
+    return map;
+  }, [reviewAnswers]);
+
+  // Build score maps
+  const examScores = useMemo(() => {
+    const map: Record<string, { scores: Record<string, { correct: number; total: number }>; total: { correct: number; total: number } }> = {};
+    completedExamIds.forEach(eid => {
+      const qs = allQuestions.filter(q => q.exam_id === eid);
+      const ans = allAnswers.filter(a => a.exam_id === eid);
+      const ansMap = new Map(ans.map(a => [a.question_id, a.is_correct]));
+      const scores: Record<string, { correct: number; total: number }> = {};
+      let totalCorrect = 0;
+      qs.forEach(q => {
+        const subj = q.subject?.toLowerCase() || "unknown";
+        if (!scores[subj]) scores[subj] = { correct: 0, total: 0 };
+        scores[subj].total++;
+        if (ansMap.get(q.id)) { scores[subj].correct++; totalCorrect++; }
+      });
+      map[eid] = { scores, total: { correct: totalCorrect, total: qs.length } };
+    });
+    return map;
+  }, [allQuestions, allAnswers, completedExamIds]);
+
+  // Calendar data
+  const completedDates = historyExams.filter(e => e.status === "completed").map(e => new Date(e.scheduled_start));
+  const missedDates = historyExams.filter(e => e.status === "expired").map(e => new Date(e.scheduled_start));
+
+  const displayExams = selectedDate
+    ? historyExams.filter(e => isSameDay(new Date(e.scheduled_start), selectedDate))
+    : historyExams.slice(0, 4);
+
   const isExhausted = isStudent && creditInfo && creditInfo.used >= creditInfo.limit;
-  const isNearLimit = isStudent && creditInfo && creditInfo.used >= creditInfo.limit * 0.8 && !isExhausted;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -95,8 +209,6 @@ const StudentAIMentorChat = () => {
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
-
-    // Check credit limit for students
     if (isStudent && creditInfo && creditInfo.used >= creditInfo.limit) {
       toast.error("You've used all your chats for today! Come back tomorrow or ask your parent for more. 💬");
       return;
@@ -124,10 +236,8 @@ const StudentAIMentorChat = () => {
 
       if (!resp.ok || !resp.body) throw new Error("Failed to get response");
 
-      // Increment usage for students
       if (isStudent) {
         await incrementUsage();
-        // Show warning at 80%
         if (creditInfo && creditInfo.used + 1 >= creditInfo.limit * 0.8 && creditInfo.used + 1 < creditInfo.limit) {
           toast.warning(`Running low on chats! ${creditInfo.limit - creditInfo.used - 1} left today 💬`);
         }
@@ -190,9 +300,23 @@ const StudentAIMentorChat = () => {
     return <StudentExamMode />;
   }
 
+  // If reviewing a completed exam
+  if (reviewExamId && reviewQuestions.length > 0) {
+    const exam = allExams.find(e => e.id === reviewExamId);
+    return (
+      <MockExamResults
+        questions={reviewQuestions as any}
+        answers={reviewAnswerMap}
+        examTitle={exam?.title || "Mock Exam"}
+        canReview={true}
+        onBack={() => setReviewExamId(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
-      {/* Upcoming exam banner handled by StudentExamMode (student only) */}
+      {/* Upcoming exam banner (student only) */}
       {isStudent && <StudentExamMode />}
 
       {/* Credit exhausted banner */}
@@ -204,6 +328,7 @@ const StudentAIMentorChat = () => {
         </div>
       )}
 
+      {/* Chat widget */}
       <div className="bg-card rounded-2xl shadow-card border border-border flex flex-col h-[550px]">
         <div className="gradient-primary rounded-t-2xl p-5 flex items-center gap-3">
           <Sparkles className="h-7 w-7 text-primary-foreground" />
@@ -277,6 +402,64 @@ const StudentAIMentorChat = () => {
           </form>
         </div>
       </div>
+
+      {/* Recent Exam History section */}
+      {isStudent && historyExams.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-foreground">📊 Recent Exam History</h3>
+            <div className="flex items-center gap-2">
+              {selectedDate && (
+                <Button variant="ghost" size="sm" onClick={() => setSelectedDate(undefined)} className="text-xs text-muted-foreground">
+                  Clear filter
+                </Button>
+              )}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "d MMM yyyy") : "Filter"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    className={cn("p-3 pointer-events-auto")}
+                    modifiers={{
+                      completed: completedDates,
+                      missed: missedDates,
+                    }}
+                    modifiersStyles={{
+                      completed: { backgroundColor: "hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))", fontWeight: "bold" },
+                      missed: { backgroundColor: "hsl(var(--destructive) / 0.2)", color: "hsl(var(--destructive))", fontWeight: "bold" },
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {displayExams.length > 0 ? (
+            <div className="space-y-3">
+              {displayExams.map((e) => (
+                <ExamHistoryCard
+                  key={e.id}
+                  exam={e}
+                  scores={examScores[e.id]?.scores}
+                  totalScore={examScores[e.id]?.total}
+                  onReview={e.status === "completed" ? () => setReviewExamId(e.id) : undefined}
+                />
+              ))}
+            </div>
+          ) : (
+            selectedDate && (
+              <p className="text-sm text-muted-foreground text-center py-4">No exams on this date</p>
+            )
+          )}
+        </div>
+      )}
     </div>
   );
 };
