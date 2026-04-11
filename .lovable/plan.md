@@ -1,64 +1,80 @@
 
 
-# Fix: Junk Characters in AI-Generated Mock Exam Questions
+# Student AI Mock Exam History with Calendar
 
-## Problem
-The AI model returns subject and topic fields with garbage characters like `english漫,topic::`, `Maths漫,topic::`, `VR漫,topic::`, `NVR漫,topic::`. This causes:
-1. Subject breakdown in results shows garbled text
-2. Score mapping in `StudentExamMode.tsx` fails (e.g., `subjectScores["english"]` finds nothing because the key is `english漫,topic::`)
-3. All answers marked incorrect because the `correct_answer` field may also contain junk
+## Current State
+The student's "AI Mentor" tab shows `StudentExamMode` which displays:
+- Active/live exams (take exam UI)
+- Upcoming scheduled exams
+- Recently completed exam (single "Review Last Exam Results" button)
+- Expired/missed exams
 
-## Root Cause
-The AI model (gemini-3-flash-preview) sometimes produces malformed tool call arguments with Unicode artifacts. The edge function inserts these raw values into the database without sanitization.
+All are shown in a flat list with no historical browsing or calendar navigation.
 
-## Fix
+## Proposed Layout
 
-### 1. Edge function: Sanitize + validate AI output (`supabase/functions/generate-mock-exam/index.ts`)
-
-After parsing questions from the AI response, sanitize each question before DB insert:
-
-- **Strip non-ASCII junk** from `subject` and `topic` fields
-- **Normalize subject names** to lowercase canonical values (`english`, `maths`, `vr`, `nvr`) — reject/map anything else
-- **Validate `correct_answer`** exists in the `options` array — if not, find the closest match or flag the question
-- **Constrain the prompt** to explicitly list allowed subject values: `"Use ONLY these exact subject values: english, maths, vr, nvr"`
-- **Add `max_tokens`** to prevent truncation artifacts
-
-### 2. Prompt improvements
-
-Update the system and user prompts to be more explicit:
-- System: "Output subject as one of: english, maths, vr, nvr (lowercase, no other text)"
-- Add `max_tokens: 4096` to avoid truncation
-
-### Changes
-
-| File | Change |
-|------|--------|
-| `supabase/functions/generate-mock-exam/index.ts` | Add sanitization function for subject/topic/correct_answer; improve prompt; add max_tokens |
-
-### Sanitization logic (pseudo)
-
-```typescript
-function sanitize(q) {
-  // Strip non-printable/non-ASCII from subject & topic
-  q.subject = q.subject.replace(/[^\x20-\x7E]/g, '').trim().toLowerCase();
-  q.topic = (q.topic || '').replace(/[^\x20-\x7E]/g, '').trim();
-  
-  // Map to canonical subjects
-  const subjectMap = { english: 'english', maths: 'maths', math: 'maths', vr: 'vr', 'verbal reasoning': 'vr', nvr: 'nvr', 'non-verbal reasoning': 'nvr' };
-  q.subject = subjectMap[q.subject] || 'english';
-  
-  // Ensure correct_answer is in options
-  if (!q.options.includes(q.correct_answer)) {
-    // Try trimmed match
-    const match = q.options.find(o => o.trim() === q.correct_answer.trim());
-    if (match) q.correct_answer = match;
-  }
-}
+```text
+┌─────────────────────────────────────────────────┐
+│  📅 Upcoming Mock Exams                         │
+│  ┌───────────────────────────────────────────┐   │
+│  │ Mock Test 12-Apr — 12 Apr, 14:00          │   │
+│  │ Mock Test 15-Apr — 15 Apr, 10:00          │   │
+│  └───────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────┤
+│  📊 Recent Exam History (last 7 days)           │
+│  ┌───────────────────────────────────────────┐   │
+│  │ ✅ Mock Test 11-Apr     11 Apr  18/23 78% │   │
+│  │    Eng: 5/6 Maths: 4/5 VR: 5/6 NVR: 4/6  │   │
+│  │                          [Review Results]  │   │
+│  ├───────────────────────────────────────────┤   │
+│  │ ❌ Mock Test 10-Apr     10 Apr    Missed   │   │
+│  │    Status: Not Completed                   │   │
+│  ├───────────────────────────────────────────┤   │
+│  │ ✅ Mock Test 09-Apr     09 Apr  21/25 84% │   │
+│  │    Eng: 6/7 Maths: 5/6 VR: 5/6 NVR: 5/6  │   │
+│  │                          [Review Results]  │   │
+│  └───────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────┤
+│  📆 Exam History Calendar                       │
+│  ┌───────────────────────────────────────────┐   │
+│  │       < April 2026 >                      │   │
+│  │  Mo Tu We Th Fr Sa Su                     │   │
+│  │         1  2  3  4  5                     │   │
+│  │   6  7  8 [9] 10 [11] 12                 │   │
+│  │  13 14 15 16 17 18 19                     │   │
+│  │  ...                                      │   │
+│  └───────────────────────────────────────────┘   │
+│                                                  │
+│  Selected: 09 Apr 2026                          │
+│  ┌───────────────────────────────────────────┐   │
+│  │ ✅ Mock Test 09-Apr     21/25  84%        │   │
+│  │    Eng: 6/7 Maths: 5/6 VR: 5/6 NVR: 5/6  │   │
+│  │                          [Review Results]  │   │
+│  └───────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────┘
 ```
 
-## Test
-1. Parent creates a new AI mock exam with all 4 subjects
-2. Verify questions have clean subject names (english, maths, vr, nvr)
-3. Student takes the exam → results show correct subject breakdown with no junk characters
-4. Correct answers are properly matched
+## Behavior
+
+- **Top section**: Only `scheduled` exams (future start time) — same as current "Upcoming"
+- **Recent History** (middle): Completed + expired exams from the last 7 days, sorted newest first. Each card shows title, date, status badge (Completed/Missed), score breakdown for completed ones, and a "Review Results" button
+- **Calendar** (bottom): Uses shadcn `Calendar` component. Dates with exams are highlighted (green dot for completed, red for missed). Clicking a highlighted date shows that day's exam details below the calendar
+- When a **live exam** is active, the full exam-taking UI replaces everything (current behavior preserved)
+
+## Technical Details
+
+### Changes to `StudentExamMode.tsx`
+- Split exams into: `scheduled` (future), `recentHistory` (completed/expired in last 7 days), `allHistory` (completed/expired, all time)
+- Add `selectedDate` state for calendar interaction
+- Add calendar with `modifiers` to highlight exam dates
+- Add exam detail cards for recent history and calendar-selected dates
+- Fetch score data from `ai_mock_answers` for completed exams to show subject breakdowns
+
+### No database or RLS changes needed
+All data is already accessible via existing `ai_mock_exams` + `ai_mock_answers` SELECT policies for students.
+
+### Files to modify
+| File | Change |
+|------|--------|
+| `src/components/StudentExamMode.tsx` | Restructure the "no active exam" view into 3 sections: scheduled, recent history, calendar history |
 
