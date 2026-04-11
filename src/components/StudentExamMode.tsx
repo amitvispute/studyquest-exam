@@ -3,12 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import MockExamResults from "@/components/MockExamResults";
-import ExamHistoryCard from "@/components/ExamHistoryCard";
-import { format, subDays, isSameDay, parseISO } from "date-fns";
+import { format } from "date-fns";
 
 interface Question {
   id: string;
@@ -36,8 +34,6 @@ const StudentExamMode = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [reviewExamId, setReviewExamId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   // Fetch all exams for student
   const { data: exams = [] } = useQuery({
@@ -55,59 +51,7 @@ const StudentExamMode = () => {
     refetchInterval: 30000,
   });
 
-  // Fetch all answers for score breakdowns
-  const completedExamIds = exams.filter(e => e.status === "completed").map(e => e.id);
-  const { data: allAnswers = [] } = useQuery({
-    queryKey: ["all_exam_answers", completedExamIds],
-    queryFn: async () => {
-      if (completedExamIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("ai_mock_answers")
-        .select("exam_id, question_id, is_correct")
-        .in("exam_id", completedExamIds);
-      if (error) throw error;
-      return data;
-    },
-    enabled: completedExamIds.length > 0,
-  });
-
-  // Fetch questions for completed exams (for subject breakdown)
-  const { data: allQuestions = [] } = useQuery({
-    queryKey: ["all_exam_questions", completedExamIds],
-    queryFn: async () => {
-      if (completedExamIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("ai_mock_questions")
-        .select("id, exam_id, subject")
-        .in("exam_id", completedExamIds);
-      if (error) throw error;
-      return data;
-    },
-    enabled: completedExamIds.length > 0,
-  });
-
-  // Build score maps per exam
-  const examScores = useMemo(() => {
-    const map: Record<string, { scores: Record<string, { correct: number; total: number }>; total: { correct: number; total: number } }> = {};
-    completedExamIds.forEach(eid => {
-      const qs = allQuestions.filter(q => q.exam_id === eid);
-      const ans = allAnswers.filter(a => a.exam_id === eid);
-      const ansMap = new Map(ans.map(a => [a.question_id, a.is_correct]));
-      const scores: Record<string, { correct: number; total: number }> = {};
-      let totalCorrect = 0;
-      qs.forEach(q => {
-        const subj = q.subject?.toLowerCase() || "unknown";
-        if (!scores[subj]) scores[subj] = { correct: 0, total: 0 };
-        scores[subj].total++;
-        if (ansMap.get(q.id)) { scores[subj].correct++; totalCorrect++; }
-      });
-      map[eid] = { scores, total: { correct: totalCorrect, total: qs.length } };
-    });
-    return map;
-  }, [allQuestions, allAnswers, completedExamIds]);
-
   const now = new Date();
-  const sevenDaysAgo = subDays(now, 7);
 
   const activeExam = exams.find(
     (e) => new Date(e.scheduled_start) <= now && new Date(e.scheduled_end) > now && (e.status === "scheduled" || e.status === "in_progress")
@@ -117,52 +61,32 @@ const StudentExamMode = () => {
     (e) => new Date(e.scheduled_start) > now && e.status === "scheduled"
   );
 
-  const recentHistory = exams.filter(
-    (e) => (e.status === "completed" || e.status === "expired") && new Date(e.scheduled_start) >= sevenDaysAgo
-  );
-
-  const allHistory = exams.filter(
-    (e) => e.status === "completed" || e.status === "expired"
-  );
-
-  // Calendar modifiers
-  const completedDates = allHistory.filter(e => e.status === "completed").map(e => new Date(e.scheduled_start));
-  const missedDates = allHistory.filter(e => e.status === "expired").map(e => new Date(e.scheduled_start));
-
-  const selectedDateExams = selectedDate
-    ? allHistory.filter(e => isSameDay(new Date(e.scheduled_start), selectedDate))
-    : [];
-
   // For active exam: fetch questions & existing answers
-  const examForQuestions = reviewExamId
-    ? exams.find(e => e.id === reviewExamId)
-    : activeExam;
-
   const { data: questions = [] } = useQuery({
-    queryKey: ["exam_questions", examForQuestions?.id],
+    queryKey: ["exam_questions", activeExam?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ai_mock_questions")
         .select("*")
-        .eq("exam_id", examForQuestions!.id)
+        .eq("exam_id", activeExam!.id)
         .order("question_number");
       if (error) throw error;
       return data as Question[];
     },
-    enabled: !!examForQuestions,
+    enabled: !!activeExam,
   });
 
   const { data: existingAnswers = [] } = useQuery({
-    queryKey: ["exam_answers", examForQuestions?.id],
+    queryKey: ["exam_answers", activeExam?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ai_mock_answers")
         .select("*")
-        .eq("exam_id", examForQuestions!.id);
+        .eq("exam_id", activeExam!.id);
       if (error) throw error;
       return data;
     },
-    enabled: !!examForQuestions,
+    enabled: !!activeExam,
   });
 
   useEffect(() => {
@@ -170,9 +94,9 @@ const StudentExamMode = () => {
       const map: Record<string, string> = {};
       existingAnswers.forEach((a: any) => { map[a.question_id] = a.student_answer; });
       setAnswers(map);
-      if (examForQuestions?.status === "completed") setShowResults(true);
+      if (activeExam?.status === "completed") setShowResults(true);
     }
-  }, [existingAnswers, examForQuestions?.status]);
+  }, [existingAnswers, activeExam?.status]);
 
   useEffect(() => {
     if (activeExam && activeExam.status === "scheduled") {
@@ -238,20 +162,15 @@ const StudentExamMode = () => {
     }
   };
 
-  const handleReviewExam = (examId: string) => {
-    setReviewExamId(examId);
-    setShowResults(true);
-  };
-
-  // Show results in review mode
-  if (showResults && examForQuestions && questions.length > 0) {
+  // Show results after submit
+  if (showResults && activeExam && questions.length > 0) {
     return (
       <MockExamResults
         questions={questions}
         answers={answers}
-        examTitle={examForQuestions.title}
+        examTitle={activeExam.title}
         canReview={true}
-        onBack={() => { setShowResults(false); setReviewExamId(null); setAnswers({}); }}
+        onBack={() => { setShowResults(false); setAnswers({}); }}
       />
     );
   }
@@ -315,10 +234,9 @@ const StudentExamMode = () => {
     );
   }
 
-  // No active exam — show 3-section layout
+  // No active exam — show only upcoming
   return (
-    <div className="space-y-6">
-      {/* Section 1: Upcoming */}
+    <div className="space-y-4">
       {upcomingExams.length > 0 && (
         <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4">
           <p className="font-semibold text-foreground mb-2">📅 Upcoming Mock Exams</p>
@@ -328,70 +246,6 @@ const StudentExamMode = () => {
             </p>
           ))}
         </div>
-      )}
-
-      {/* Section 2: Recent History (last 7 days) */}
-      {recentHistory.length > 0 && (
-        <div>
-          <h3 className="font-semibold text-foreground mb-3">📊 Recent Exam History</h3>
-          <div className="space-y-3">
-            {recentHistory.map((e) => (
-              <ExamHistoryCard
-                key={e.id}
-                exam={e}
-                scores={examScores[e.id]?.scores}
-                totalScore={examScores[e.id]?.total}
-                onReview={e.status === "completed" ? () => handleReviewExam(e.id) : undefined}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Section 3: Calendar History */}
-      <div>
-        <h3 className="font-semibold text-foreground mb-3">📆 Exam History Calendar</h3>
-        <div className="bg-card border border-border rounded-2xl p-4">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={setSelectedDate}
-            className="pointer-events-auto mx-auto"
-            modifiers={{
-              completed: completedDates,
-              missed: missedDates,
-            }}
-            modifiersStyles={{
-              completed: { backgroundColor: "hsl(var(--primary) / 0.2)", color: "hsl(var(--primary))", fontWeight: "bold" },
-              missed: { backgroundColor: "hsl(var(--destructive) / 0.2)", color: "hsl(var(--destructive))", fontWeight: "bold" },
-            }}
-          />
-
-          {selectedDate && selectedDateExams.length > 0 && (
-            <div className="mt-4 space-y-3">
-              <p className="text-sm font-medium text-muted-foreground">
-                {format(selectedDate, "d MMM yyyy")}
-              </p>
-              {selectedDateExams.map((e) => (
-                <ExamHistoryCard
-                  key={e.id}
-                  exam={e}
-                  scores={examScores[e.id]?.scores}
-                  totalScore={examScores[e.id]?.total}
-                  onReview={e.status === "completed" ? () => handleReviewExam(e.id) : undefined}
-                />
-              ))}
-            </div>
-          )}
-
-          {selectedDate && selectedDateExams.length === 0 && (
-            <p className="mt-4 text-sm text-muted-foreground text-center">No exams on this date</p>
-          )}
-        </div>
-      </div>
-
-      {recentHistory.length === 0 && upcomingExams.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-4">No mock exams yet</p>
       )}
     </div>
   );
