@@ -122,6 +122,7 @@ serve(async (req) => {
           },
         ],
         tool_choice: { type: "function", function: { name: "save_questions" } },
+        max_tokens: 4096,
       }),
     });
 
