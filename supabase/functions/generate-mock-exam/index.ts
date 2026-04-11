@@ -87,7 +87,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "You are an 11+ exam question generator. Generate high-quality multiple choice questions." },
+          { role: "system", content: "You are an 11+ exam question generator. Generate high-quality multiple choice questions. For the subject field, use ONLY one of these exact lowercase values: english, maths, vr, nvr. Do not append any extra characters." },
           { role: "user", content: prompt },
         ],
         tools: [
