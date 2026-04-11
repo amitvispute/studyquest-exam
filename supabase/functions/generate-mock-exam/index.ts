@@ -107,7 +107,7 @@ serve(async (req) => {
                         question_text: { type: "string" },
                         options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
                         correct_answer: { type: "string", description: "The correct option text" },
-                        subject: { type: "string" },
+                        subject: { type: "string", enum: ["english", "maths", "vr", "nvr"] },
                         topic: { type: "string" },
                       },
                       required: ["question_text", "options", "correct_answer", "subject", "topic"],
