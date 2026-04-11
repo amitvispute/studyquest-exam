@@ -44,10 +44,39 @@ serve(async (req) => {
 
     if (examError) throw examError;
 
+    // Sanitization helpers
+    const SUBJECT_MAP: Record<string, string> = {
+      english: "english", maths: "maths", math: "maths", mathematics: "maths",
+      vr: "vr", "verbal reasoning": "vr", "verbal-reasoning": "vr",
+      nvr: "nvr", "non-verbal reasoning": "nvr", "non-verbal-reasoning": "nvr", "nonverbal reasoning": "nvr",
+    };
+
+    function stripJunk(s: string): string {
+      return (s || "").replace(/[^\x20-\x7E]/g, "").replace(/,topic::.*$/i, "").trim();
+    }
+
+    function normalizeSubject(raw: string): string {
+      const cleaned = stripJunk(raw).toLowerCase();
+      return SUBJECT_MAP[cleaned] || "english";
+    }
+
+    function sanitizeQuestion(q: any) {
+      q.subject = normalizeSubject(q.subject);
+      q.topic = stripJunk(q.topic || "");
+      q.correct_answer = (q.correct_answer || "").trim();
+      q.options = (q.options || []).map((o: string) => (o || "").trim());
+      // Ensure correct_answer matches an option
+      if (!q.options.includes(q.correct_answer)) {
+        const match = q.options.find((o: string) => o.trim() === q.correct_answer.trim());
+        if (match) q.correct_answer = match;
+      }
+      return q;
+    }
+
     // Generate questions using AI with tool calling
     const subjectList = subjects.join(", ");
     const topicHint = topics ? ` focusing on topics: ${topics}` : "";
-    const prompt = `Generate exactly ${num_questions} multiple-choice questions for an 11+ Grammar School entrance exam. Subjects: ${subjectList}${topicHint}. Each question must have exactly 4 options (A, B, C, D) and one correct answer. Questions should be appropriate for a 10-11 year old student. Distribute questions evenly across the requested subjects.`;
+    const prompt = `Generate exactly ${num_questions} multiple-choice questions for an 11+ Grammar School entrance exam. Subjects: ${subjectList}${topicHint}. Each question must have exactly 4 options (A, B, C, D) and one correct answer. Questions should be appropriate for a 10-11 year old student. Distribute questions evenly across the requested subjects. IMPORTANT: Use ONLY these exact subject values (lowercase): english, maths, vr, nvr. Do not add any extra characters or text to the subject field.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -58,7 +87,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "You are an 11+ exam question generator. Generate high-quality multiple choice questions." },
+          { role: "system", content: "You are an 11+ exam question generator. Generate high-quality multiple choice questions. For the subject field, use ONLY one of these exact lowercase values: english, maths, vr, nvr. Do not append any extra characters." },
           { role: "user", content: prompt },
         ],
         tools: [
@@ -78,7 +107,7 @@ serve(async (req) => {
                         question_text: { type: "string" },
                         options: { type: "array", items: { type: "string" }, minItems: 4, maxItems: 4 },
                         correct_answer: { type: "string", description: "The correct option text" },
-                        subject: { type: "string" },
+                        subject: { type: "string", enum: ["english", "maths", "vr", "nvr"] },
                         topic: { type: "string" },
                       },
                       required: ["question_text", "options", "correct_answer", "subject", "topic"],
@@ -93,6 +122,7 @@ serve(async (req) => {
           },
         ],
         tool_choice: { type: "function", function: { name: "save_questions" } },
+        max_tokens: 4096,
       }),
     });
 
@@ -136,6 +166,9 @@ serve(async (req) => {
     }
 
     if (!questions || questions.length === 0) throw new Error("No questions generated");
+
+    // Sanitize all questions
+    questions = questions.map(sanitizeQuestion);
 
     // Insert questions
     const questionRows = questions.map((q: any, i: number) => ({
