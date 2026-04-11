@@ -167,6 +167,9 @@ serve(async (req) => {
 
     if (!questions || questions.length === 0) throw new Error("No questions generated");
 
+    // Sanitize all questions
+    questions = questions.map(sanitizeQuestion);
+
     // Insert questions
     const questionRows = questions.map((q: any, i: number) => ({
       exam_id: exam.id,
