@@ -1,66 +1,40 @@
 
 
-# Restructure Student AI Mentor: Recent History Below Chat, Calendar as Filter Button
+## Diagnosis
 
-## Current State
-- `StudentAIMentorChat` renders `StudentExamMode` at the top (which shows upcoming exams, recent history for 7 days, and a full inline calendar)
-- The chat widget sits below all of that
-- This makes the page very long and pushes the chat down
+The user reports "AI Mentor feature is not loading at all." No client logs (user is on `/auth`) and no edge function logs (function hasn't been hit recently). Reviewing `StudentAIMentorChat.tsx`, I found likely culprits introduced by recent changes:
 
-## Proposed Layout
+### Likely root causes
 
-```text
-┌─────────────────────────────────────────────────┐
-│  📅 Upcoming Mock Exams (if any)                │
-│  Mock Test 15-Apr — 15 Apr, 10:00               │
-├─────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────┐    │
-│  │  ✨ 11+ Mentor Chat                     │    │
-│  │  [chat messages area]                    │    │
-│  │  [input bar]                             │    │
-│  └─────────────────────────────────────────┘    │
-├─────────────────────────────────────────────────┤
-│  📊 Recent Exam History          [📅 Filter]    │
-│  ┌───────────────────────────────────────────┐  │
-│  │ ✅ Mock 11-Apr  18/23 78%  [Review]       │  │
-│  │ ❌ Mock 10-Apr  Missed                    │  │
-│  │ ✅ Mock 09-Apr  21/25 84%  [Review]       │  │
-│  │ ✅ Mock 08-Apr  19/23 83%  [Review]       │  │
-│  └───────────────────────────────────────────┘  │
-│                                                  │
-│  (Calendar opens as popover from Filter button,  │
-│   same pattern as Parent Exam Results)           │
-└─────────────────────────────────────────────────┘
-```
+1. **`.single()` in credit-info query throws** (lines 71, 77 of `StudentAIMentorChat.tsx`)
+   - For a student with no `ai_mentor_settings` row or no `ai_mentor_usage` row for today, Supabase `.single()` returns a `PGRST116` error.
+   - The promise's destructure `{ data: settings }` works (data is null) but the error is silently lost — except both calls share the query function, and any unhandled access pattern can cause issues. More importantly, this is fragile and inconsistent with the rest of the code which uses `.maybeSingle()`.
 
-## Key Changes
+2. **`StudentExamMode` rendered twice** — once at line 319 inside `StudentAIMentorChat` (for upcoming banner) and again at line 299 (when `activeExam` exists). When `activeExam` is truthy, line 299 returns `<StudentExamMode />` standalone — fine. But for non-active state, line 319 renders it. Both share the `student_exams` query key with the parent component, which is fine. Not a crash, but double-rendering risk.
 
-1. **Move recent exam history BELOW the chat** — currently it's above the chat inside `StudentExamMode`. The upcoming banner stays on top.
+3. **Edge function model name** — `google/gemini-3-flash-preview` is correct per the gateway docs, so this is OK.
 
-2. **Show only 4 most recent exams** in the visible list. Older exams accessible only via the calendar filter button.
+4. **`enabled: !!user && isStudent`** for credit info — if `role` is briefly `null` during auth load, `isStudent` is false and query stays disabled. Fine.
 
-3. **Replace the full inline calendar with a popover filter button** — same pattern as `ParentExamResults.tsx`: a "Filter by date" button with `CalendarIcon` that opens a `Popover` containing the `Calendar` component with highlighted exam dates. When a date is selected, show that date's exams instead of the default 4.
+The most actionable fix is **#1**: replace `.single()` with `.maybeSingle()` in the credit-info query so missing rows don't throw.
 
-## Technical Implementation
+## Plan
 
-### `StudentExamMode.tsx`
-- Remove the inline calendar section (Section 3)
-- Remove the "Recent Exam History" section (Section 2) — this will move to `StudentAIMentorChat`
-- Keep only: active exam UI + upcoming exams banner (Section 1)
+### Fix 1 — Use `.maybeSingle()` for credit-info query
+File: `src/components/StudentAIMentorChat.tsx` (lines ~67–77)
 
-### `StudentAIMentorChat.tsx`
-- Import `ExamHistoryCard`, `Calendar`, `Popover`, `CalendarIcon`, date utils
-- Add queries for completed/expired exams, questions, and answers (reuse the pattern from current `StudentExamMode`)
-- Below the chat widget, render:
-  - Header row: "📊 Recent Exam History" + filter button (Popover with Calendar)
-  - Default view: latest 4 exams (completed + expired)
-  - Filtered view: exams matching selected date
-- Calendar modifiers: green for completed, red for missed (same as parent pattern)
+Replace both `.single()` with `.maybeSingle()` so a brand-new student (no settings, no usage today) doesn't trigger a thrown error that masks the chat UI.
 
-### No database changes needed
+### Fix 2 — Guard against query errors and add a fallback
+Add a small `staleTime` and ensure `creditInfo` defaults are robust. Already defaults to `{ limit: 20, used: 0 }` via `?? 20`/`?? 0`, but with `.single()` throwing, the default never applied.
 
+### Fix 3 — Verify with logs
+After the fix, ask the user to open the AI Mentor tab so we can read console/network logs and edge-function logs to confirm chat sends work (and rate-limit accounting still increments).
+
+### Files to modify
 | File | Change |
 |------|--------|
-| `src/components/StudentExamMode.tsx` | Strip down to only upcoming banner + active exam UI |
-| `src/components/StudentAIMentorChat.tsx` | Add recent exam history section below chat with calendar popover filter |
+| `src/components/StudentAIMentorChat.tsx` | Change two `.single()` → `.maybeSingle()` in `ai_mentor_credit_info` query |
+
+No DB or edge function changes needed.
 
