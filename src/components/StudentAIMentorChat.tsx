@@ -201,9 +201,8 @@ const StudentAIMentorChat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const incrementUsage = async () => {
+  const refreshUsage = () => {
     if (!user || !isStudent) return;
-    await supabase.rpc("increment_mentor_usage");
     queryClient.invalidateQueries({ queryKey: ["ai_mentor_credit_info"] });
   };
 
