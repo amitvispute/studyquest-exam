@@ -68,13 +68,13 @@ const StudentAIMentorChat = () => {
         .from("ai_mentor_settings")
         .select("daily_limit")
         .eq("student_user_id", user!.id)
-        .single();
+        .maybeSingle();
       const { data: usage } = await supabase
         .from("ai_mentor_usage")
         .select("message_count")
         .eq("user_id", user!.id)
         .eq("date", today)
-        .single();
+        .maybeSingle();
       return {
         limit: settings?.daily_limit ?? 20,
         used: usage?.message_count ?? 0,
