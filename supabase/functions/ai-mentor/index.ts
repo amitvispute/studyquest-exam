@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,7 +19,86 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    // --- Authentication ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const userId = claimsData.claims.sub as string;
+
+    // --- Input validation ---
+    const body = await req.json().catch(() => null);
+    if (!body || !Array.isArray(body.messages)) {
+      return new Response(JSON.stringify({ error: "Invalid request body" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const messages = body.messages
+      .filter((m: any) => m && typeof m.content === "string" && (m.role === "user" || m.role === "assistant"))
+      .slice(-30)
+      .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 4000) }));
+
+    if (messages.length === 0) {
+      return new Response(JSON.stringify({ error: "No valid messages" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Server-side rate limit (only enforced for students) ---
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const { data: roleRow } = await serviceClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "student")
+      .maybeSingle();
+
+    const isStudent = !!roleRow;
+
+    if (isStudent) {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: settings } = await serviceClient
+        .from("ai_mentor_settings")
+        .select("daily_limit")
+        .eq("student_user_id", userId)
+        .maybeSingle();
+      const dailyLimit = settings?.daily_limit ?? 20;
+
+      const { data: usage } = await serviceClient
+        .from("ai_mentor_usage")
+        .select("message_count")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .maybeSingle();
+      const used = usage?.message_count ?? 0;
+
+      if (used >= dailyLimit) {
+        return new Response(JSON.stringify({ error: "Daily chat limit reached" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -54,6 +134,27 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "AI gateway error" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Increment usage server-side for students (after successful upstream response)
+    if (isStudent) {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: existing } = await serviceClient
+        .from("ai_mentor_usage")
+        .select("id, message_count")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .maybeSingle();
+      if (existing) {
+        await serviceClient
+          .from("ai_mentor_usage")
+          .update({ message_count: existing.message_count + 1 })
+          .eq("id", existing.id);
+      } else {
+        await serviceClient
+          .from("ai_mentor_usage")
+          .insert({ user_id: userId, date: today, message_count: 1 });
+      }
     }
 
     return new Response(response.body, {

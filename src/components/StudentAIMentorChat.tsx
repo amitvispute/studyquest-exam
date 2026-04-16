@@ -201,9 +201,8 @@ const StudentAIMentorChat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const incrementUsage = async () => {
+  const refreshUsage = () => {
     if (!user || !isStudent) return;
-    await supabase.rpc("increment_mentor_usage");
     queryClient.invalidateQueries({ queryKey: ["ai_mentor_credit_info"] });
   };
 
@@ -237,7 +236,7 @@ const StudentAIMentorChat = () => {
       if (!resp.ok || !resp.body) throw new Error("Failed to get response");
 
       if (isStudent) {
-        await incrementUsage();
+        await refreshUsage();
         if (creditInfo && creditInfo.used + 1 >= creditInfo.limit * 0.8 && creditInfo.used + 1 < creditInfo.limit) {
           toast.warning(`Running low on chats! ${creditInfo.limit - creditInfo.used - 1} left today 💬`);
         }
