@@ -1,43 +1,30 @@
-## Problem
+# Plan
 
-The AI Mentor edge function crashes with:
-`TypeError: supabase.auth.getClaims is not a function`
+## What I’ll fix
+1. Update the AI Mentor chat client to send the signed-in user’s access token instead of the publishable key in the `Authorization` header.
+2. Keep the edge function auth check as a user-token validation step, since the current 401 is caused by the wrong client header rather than the function logic itself.
+3. Re-check the request flow with logs so the AI Mentor loads and sends messages successfully end-to-end.
 
-`getClaims()` was added in `@supabase/supabase-js` v2.46+, but the function pins `@supabase/supabase-js@2.45.0`, so the method doesn't exist at runtime → 500 → chat fails to load/send.
+## Why this is failing
+- The browser is currently calling the AI Mentor function with:
+  - `Authorization: Bearer <publishable key>`
+- That value is not the logged-in user’s session token.
+- Backend auth therefore sees a token without a valid user `sub` claim and returns `401 Unauthorized`.
+- The logs already confirm this with `invalid claim: missing sub claim`.
 
-## Fix
+## Files to update
+- `src/components/StudentAIMentorChat.tsx`
 
-Replace the `getClaims(token)` call with `getUser()`, which exists in v2.45 and also validates the JWT against Supabase Auth using the `Authorization` header already attached to the client.
+## Technical details
+- Replace the hardcoded auth header source:
+  - from `import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY`
+  - to the current session access token from the auth client/session
+- Prefer using the existing auth state from `useAuth()` if the session is already available there.
+- If needed, fall back to `supabase.auth.getSession()` before sending the request.
+- Preserve the current streaming response handling and credit refresh behavior.
 
-### File: `supabase/functions/ai-mentor/index.ts`
-
-Replace this block:
-```ts
-const token = authHeader.replace("Bearer ", "");
-const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-if (claimsError || !claimsData?.claims) {
-  return new Response(JSON.stringify({ error: "Unauthorized" }), {
-    status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-const userId = claimsData.claims.sub as string;
-```
-
-With:
-```ts
-const { data: userData, error: userError } = await supabase.auth.getUser();
-if (userError || !userData?.user) {
-  return new Response(JSON.stringify({ error: "Unauthorized" }), {
-    status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-const userId = userData.user.id;
-```
-
-No other changes — rate-limit logic, usage increment, and streaming response all keep working since they only depend on `userId`.
-
-## Verify
-
-1. Function auto-deploys after the edit.
-2. Open the AI Mentor tab and send a test message.
-3. Confirm: 200 streaming response, no `getClaims` error in edge logs, `ai_mentor_usage.message_count` increments for the student.
+## Verification
+1. Open AI Mentor as an authenticated student.
+2. Send a message.
+3. Confirm the function call no longer returns 401.
+4. Confirm the assistant streams a response and usage tracking updates normally.
