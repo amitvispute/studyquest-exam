@@ -1,30 +1,31 @@
-# Plan
+## Problem
+GitHub is the source of truth for the publish build. After you removed `.env` from GitHub, the production bundle was built without `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`, so `createClient(undefined, undefined)` throws `supabaseUrl is required` and the page is blank. Lovable's preview still works because preview injects these vars at dev time.
 
-## What I’ll fix
-1. Update the AI Mentor chat client to send the signed-in user’s access token instead of the publishable key in the `Authorization` header.
-2. Keep the edge function auth check as a user-token validation step, since the current 401 is caused by the wrong client header rather than the function logic itself.
-3. Re-check the request flow with logs so the AI Mentor loads and sends messages successfully end-to-end.
+Lovable has **no Settings panel for frontend build env vars**:
+- Cloud → Secrets = runtime only (edge functions), never reaches the browser bundle.
+- Workspace Build Secrets = only for `npm install` (private registries).
+- Only `.env` feeds Vite's `import.meta.env`.
 
-## Why this is failing
-- The browser is currently calling the AI Mentor function with:
-  - `Authorization: Bearer <publishable key>`
-- That value is not the logged-in user’s session token.
-- Backend auth therefore sees a token without a valid user `sub` claim and returns `401 Unauthorized`.
-- The logs already confirm this with `invalid claim: missing sub claim`.
+## Fix
+Add a `define` block in `vite.config.ts` that uses `loadEnv` first (so local `.env` still wins) and falls back to the public Supabase URL + anon key when env is absent. The GitHub-sourced publish build will then always have valid values baked in.
 
-## Files to update
-- `src/components/StudentAIMentorChat.tsx`
+### Why this is safe
+- `VITE_SUPABASE_URL` is a public endpoint.
+- `VITE_SUPABASE_PUBLISHABLE_KEY` (anon key) is designed to ship in every browser bundle — every Supabase/Firebase app does this. Security is enforced by RLS policies, not by hiding the anon key.
+- No service role key, no secret token is touched.
 
-## Technical details
-- Replace the hardcoded auth header source:
-  - from `import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY`
-  - to the current session access token from the auth client/session
-- Prefer using the existing auth state from `useAuth()` if the session is already available there.
-- If needed, fall back to `supabase.auth.getSession()` before sending the request.
-- Preserve the current streaming response handling and credit refresh behavior.
+## Changes
+- **`vite.config.ts`** — wrap config in the function form, call `loadEnv(mode, process.cwd(), '')`, and add:
+  ```ts
+  define: {
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || 'https://gztffbygqnxhgaxhvlrk.supabase.co'),
+    'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(env.VITE_SUPABASE_PUBLISHABLE_KEY || '<anon key>'),
+  }
+  ```
+
+## Out of scope
+- `src/integrations/supabase/client.ts` (auto-generated, not edited).
+- `.env`, `.gitignore`, edge functions, RLS — all unchanged.
 
 ## Verification
-1. Open AI Mentor as an authenticated student.
-2. Send a message.
-3. Confirm the function call no longer returns 401.
-4. Confirm the assistant streams a response and usage tracking updates normally.
+After implementing, click Publish → Update, reload `studyquest-exam.lovable.app`, and confirm the app renders with no `supabaseUrl is required` error in DevTools.
