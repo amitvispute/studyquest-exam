@@ -28,7 +28,7 @@ const QUICK_TOPICS = [
 ];
 
 const StudentAIMentorChat = () => {
-  const { user, role } = useAuth();
+  const { user, role, session } = useAuth();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -221,13 +221,19 @@ const StudentAIMentorChat = () => {
     const allMessages = [...messages, userMsg];
 
     try {
+      const accessToken = session?.access_token ?? (await supabase.auth.getSession()).data.session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Missing auth session");
+      }
+
       const resp = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-mentor`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({ messages: allMessages }),
         }
