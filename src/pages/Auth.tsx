@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
+function safeNext(raw: string | null): string {
+  if (!raw) return "/";
+  try {
+    const decoded = decodeURIComponent(raw);
+    if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded;
+  } catch {}
+  return "/";
+}
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +20,8 @@ import { GraduationCap, Users } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextPath = safeNext(searchParams.get("next"));
   const [loading, setLoading] = useState(false);
 
   // Login state
@@ -35,7 +46,11 @@ const Auth = () => {
       toast.error(error.message);
     } else {
       toast.success("Welcome back! 🎓");
-      navigate("/");
+      if (nextPath.startsWith("/.lovable/oauth/consent")) {
+        window.location.href = nextPath;
+      } else {
+        navigate(nextPath);
+      }
     }
   };
 
