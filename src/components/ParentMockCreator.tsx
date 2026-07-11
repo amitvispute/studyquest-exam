@@ -33,7 +33,7 @@ const SUBJECTS = [
 ];
 
 const ParentMockCreator = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const queryClient = useQueryClient();
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [topics, setTopics] = useState("");
@@ -81,7 +81,7 @@ const ParentMockCreator = () => {
   };
 
   const handleCreate = async () => {
-    if (!examDate || selectedSubjects.length === 0 || !title.trim() || !studentId) {
+    if (!examDate || selectedSubjects.length === 0 || !title.trim() || !studentId || !session) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -98,7 +98,7 @@ const ParentMockCreator = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${session!.access_token}`,
           },
           body: JSON.stringify({
             title,
@@ -108,7 +108,6 @@ const ParentMockCreator = () => {
             student_user_id: studentId,
             scheduled_start,
             scheduled_end,
-            parent_user_id: user!.id,
           }),
         }
       );
