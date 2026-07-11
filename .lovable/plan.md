@@ -1,31 +1,61 @@
-## Problem
-GitHub is the source of truth for the publish build. After you removed `.env` from GitHub, the production bundle was built without `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY`, so `createClient(undefined, undefined)` throws `supabaseUrl is required` and the page is blank. Lovable's preview still works because preview injects these vars at dev time.
+# Debug "Missing required fields" on mock exam creation
 
-Lovable has **no Settings panel for frontend build env vars**:
-- Cloud → Secrets = runtime only (edge functions), never reaches the browser bundle.
-- Workspace Build Secrets = only for `npm install` (private registries).
-- Only `.env` feeds Vite's `import.meta.env`.
+## What we know
 
-## Fix
-Add a `define` block in `vite.config.ts` that uses `loadEnv` first (so local `.env` still wins) and falls back to the public Supabase URL + anon key when env is absent. The GitHub-sourced publish build will then always have valid values baked in.
+- The toast wording ("Missing required fields") comes from the **edge function** `supabase/functions/generate-mock-exam/index.ts`, not client-side validation.
+- The request reached the function, passed auth + parent-role checks, then failed the `if (!title || !subjects?.length || !student_user_id || !scheduled_start || !scheduled_end)` guard.
+- DB confirms a `student` role user exists and the parent has read access to `user_roles`, so `studentId` on the client should be populated.
+- Recent edge function logs show only boot lines — the actual invocation logs were rotated out, so we can't see which specific field was null.
 
-### Why this is safe
-- `VITE_SUPABASE_URL` is a public endpoint.
-- `VITE_SUPABASE_PUBLISHABLE_KEY` (anon key) is designed to ship in every browser bundle — every Supabase/Firebase app does this. Security is enforced by RLS policies, not by hiding the anon key.
-- No service role key, no secret token is touched.
+## Step 1 — Add diagnostic logging (edge function)
 
-## Changes
-- **`vite.config.ts`** — wrap config in the function form, call `loadEnv(mode, process.cwd(), '')`, and add:
-  ```ts
-  define: {
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || 'https://gztffbygqnxhgaxhvlrk.supabase.co'),
-    'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(env.VITE_SUPABASE_PUBLISHABLE_KEY || '<anon key>'),
-  }
-  ```
+In `supabase/functions/generate-mock-exam/index.ts`, right after `await req.json()`, log which fields are missing (without leaking full content):
 
-## Out of scope
-- `src/integrations/supabase/client.ts` (auto-generated, not edited).
-- `.env`, `.gitignore`, edge functions, RLS — all unchanged.
+```ts
+console.log("generate-mock-exam payload keys:", {
+  hasTitle: !!title,
+  subjectsLen: Array.isArray(subjects) ? subjects.length : null,
+  hasStudentId: !!student_user_id,
+  hasStart: !!scheduled_start,
+  hasEnd: !!scheduled_end,
+  numQuestions: num_questions,
+});
+```
 
-## Verification
-After implementing, click Publish → Update, reload `studyquest-exam.lovable.app`, and confirm the app renders with no `supabaseUrl is required` error in DevTools.
+Also change the 400 response body to echo which field failed, so the user's toast is immediately actionable:
+
+```ts
+const missing = [
+  !title && "title",
+  !subjects?.length && "subjects",
+  !student_user_id && "student_user_id",
+  !scheduled_start && "scheduled_start",
+  !scheduled_end && "scheduled_end",
+].filter(Boolean);
+if (missing.length) {
+  return new Response(JSON.stringify({ error: `Missing: ${missing.join(", ")}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }});
+}
+```
+
+Deploy, ask the user to retry, then read logs / the new toast to identify the exact missing field.
+
+## Step 2 — Fix the root cause once identified
+
+Likely candidates and their fixes:
+
+- **`student_user_id` null** — `ParentMockCreator.tsx` queries `user_roles` with `.single()`; if the query rejected we silently fall to null. Switch to `.maybeSingle()` and surface an error if no student is found.
+- **`subjects` empty** — already guarded client-side; if backend still sees empty, the shape/name is wrong (unlikely, they match).
+- **`scheduled_start` / `scheduled_end` invalid** — if `startTime`/`endTime` were cleared, `new Date(...).toISOString()` throws before the fetch, so this would show a different error. Not likely.
+- **`title` empty** — client already trims and blocks; ruled out unless whitespace-only.
+
+Once the log names the culprit, the fix is a one-line client or server correction.
+
+## Files touched
+
+- `supabase/functions/generate-mock-exam/index.ts` (logging + specific error message)
+- Possibly `src/components/ParentMockCreator.tsx` (depends on Step 2 result)
+
+## Not in scope
+
+- The pre-existing `claude-sonnet-4-6` / `max_tokens` issues — separate bug, only reached after this validation passes.
+- Any schema, RLS, or auth changes.

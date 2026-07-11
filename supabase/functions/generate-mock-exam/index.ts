@@ -53,8 +53,24 @@ serve(async (req) => {
     const { title, subjects, topics, num_questions, student_user_id, scheduled_start, scheduled_end } =
       await req.json();
 
-    if (!title || !subjects?.length || !student_user_id || !scheduled_start || !scheduled_end) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
+    console.log("generate-mock-exam payload keys:", {
+      hasTitle: !!title,
+      subjectsLen: Array.isArray(subjects) ? subjects.length : null,
+      hasStudentId: !!student_user_id,
+      hasStart: !!scheduled_start,
+      hasEnd: !!scheduled_end,
+      numQuestions: num_questions,
+    });
+
+    const missing = [
+      !title && "title",
+      !subjects?.length && "subjects",
+      !student_user_id && "student_user_id",
+      !scheduled_start && "scheduled_start",
+      !scheduled_end && "scheduled_end",
+    ].filter(Boolean);
+    if (missing.length) {
+      return new Response(JSON.stringify({ error: `Missing: ${missing.join(", ")}` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
