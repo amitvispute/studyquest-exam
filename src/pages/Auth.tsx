@@ -18,6 +18,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { GraduationCap, Users } from "lucide-react";
 
+// Sign-up is temporarily disabled; new accounts are created from the Lovable backend UI instead.
+// Flip this back to true to re-enable public self-registration.
+const SIGNUP_ENABLED = false;
+
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -56,6 +60,7 @@ const Auth = () => {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!SIGNUP_ENABLED) return;
     if (!displayName.trim()) {
       toast.error("Please enter a display name");
       return;
@@ -91,9 +96,9 @@ const Auth = () => {
         <Card className="shadow-card">
           <Tabs defaultValue="login">
             <CardHeader className="pb-2">
-              <TabsList className="grid grid-cols-2 w-full">
+              <TabsList className={`grid w-full ${SIGNUP_ENABLED ? "grid-cols-2" : "grid-cols-1"}`}>
                 <TabsTrigger value="login">Log In</TabsTrigger>
-                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                {SIGNUP_ENABLED && <TabsTrigger value="signup">Sign Up</TabsTrigger>}
               </TabsList>
             </CardHeader>
 
@@ -125,85 +130,92 @@ const Auth = () => {
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? "Logging in..." : "Log In"}
                   </Button>
+                  {!SIGNUP_ENABLED && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      New accounts are set up by the family admin.
+                    </p>
+                  )}
                 </CardContent>
               </form>
             </TabsContent>
 
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup}>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Display Name</Label>
-                    <Input
-                      id="signup-name"
-                      placeholder="e.g. Pareet or Mum/Dad"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="Min 6 characters"
-                      value={signupPassword}
-                      onChange={(e) => setSignupPassword(e.target.value)}
-                      required
-                      minLength={6}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>I am a...</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRole("parent")}
-                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                          selectedRole === "parent"
-                            ? "border-primary bg-primary/5 shadow-card"
-                            : "border-border hover:border-primary/50"
-                        }`}
-                      >
-                        <Users className="h-8 w-8 text-primary" />
-                        <span className="font-semibold text-sm text-foreground">Parent</span>
-                        <span className="text-xs text-muted-foreground">Manage schedules</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedRole("student")}
-                        className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
-                          selectedRole === "student"
-                            ? "border-primary bg-primary/5 shadow-card"
-                            : "border-border hover:border-primary/50"
-                        }`}
-                      >
-                        <GraduationCap className="h-8 w-8 text-primary" />
-                        <span className="font-semibold text-sm text-foreground">Student</span>
-                        <span className="text-xs text-muted-foreground">Log practice</span>
-                      </button>
+            {SIGNUP_ENABLED && (
+              <TabsContent value="signup">
+                <form onSubmit={handleSignup}>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name">Display Name</Label>
+                      <Input
+                        id="signup-name"
+                        placeholder="e.g. Pareet or Mum/Dad"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        required
+                      />
                     </div>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email</Label>
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={signupEmail}
+                        onChange={(e) => setSignupEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Password</Label>
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        placeholder="Min 6 characters"
+                        value={signupPassword}
+                        onChange={(e) => setSignupPassword(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                    </div>
 
-                  <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Creating account..." : "Sign Up"}
-                  </Button>
-                </CardContent>
-              </form>
-            </TabsContent>
+                    <div className="space-y-2">
+                      <Label>I am a...</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRole("parent")}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                            selectedRole === "parent"
+                              ? "border-primary bg-primary/5 shadow-card"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <Users className="h-8 w-8 text-primary" />
+                          <span className="font-semibold text-sm text-foreground">Parent</span>
+                          <span className="text-xs text-muted-foreground">Manage schedules</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRole("student")}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                            selectedRole === "student"
+                              ? "border-primary bg-primary/5 shadow-card"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <GraduationCap className="h-8 w-8 text-primary" />
+                          <span className="font-semibold text-sm text-foreground">Student</span>
+                          <span className="text-xs text-muted-foreground">Log practice</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? "Creating account..." : "Sign Up"}
+                    </Button>
+                  </CardContent>
+                </form>
+              </TabsContent>
+            )}
           </Tabs>
         </Card>
       </div>
