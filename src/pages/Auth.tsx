@@ -65,7 +65,7 @@ const Auth = () => {
       email: signupEmail,
       password: signupPassword,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: window.location.origin + nextPath,
         data: {
           display_name: displayName,
           role: selectedRole,
