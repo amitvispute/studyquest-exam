@@ -218,22 +218,30 @@ Use the save_questions tool to return your generated questions.`,
     console.log(
       "Claude response:",
       JSON.stringify({
+        stop_reason: aiData.stop_reason,
         hasContent: !!aiData.content,
         contentLength: aiData.content?.length,
         hasToolUse: aiData.content?.some((c: any) => c.type === "tool_use"),
       }),
     );
 
-    let questions: any[];
+    let questions: any[] = [];
     const toolUseBlock = aiData.content?.find((c: any) => c.type === "tool_use" && c.name === "save_questions");
 
-    if (toolUseBlock) {
+    if (toolUseBlock && Array.isArray(toolUseBlock.input?.questions)) {
       questions = toolUseBlock.input.questions;
-    } else {
-      throw new Error("Claude did not use the tool as expected");
     }
 
-    if (!questions || questions.length === 0) throw new Error("No questions generated");
+    if (!Array.isArray(questions) || questions.length === 0) {
+      console.error("No questions produced. stop_reason=", aiData.stop_reason, "toolUseInputKeys=", toolUseBlock ? Object.keys(toolUseBlock.input || {}) : "no-tool-use");
+      // Clean up the orphan exam row so the parent's list isn't polluted
+      await supabaseAdmin.from("ai_mock_exams").delete().eq("id", exam.id);
+      throw new Error(
+        aiData.stop_reason === "max_tokens"
+          ? "Question generation was truncated. Please try fewer questions."
+          : "No questions generated. Please try again.",
+      );
+    }
 
     // Sanitize all questions
     questions = questions.map(sanitizeQuestion);
