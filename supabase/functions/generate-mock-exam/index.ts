@@ -11,22 +11,72 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { title, subjects, topics, num_questions, student_user_id, scheduled_start, scheduled_end, parent_user_id } =
+    // --- Authentication ---
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const authClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userError } = await authClient.auth.getUser();
+    if (userError || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const parent_user_id = userData.user.id;
+
+    const { data: parentRoleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", parent_user_id)
+      .eq("role", "parent")
+      .maybeSingle();
+    if (!parentRoleRow) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Input validation ---
+    const { title, subjects, topics, num_questions, student_user_id, scheduled_start, scheduled_end } =
       await req.json();
 
-    if (!title || !subjects?.length || !student_user_id || !scheduled_start || !scheduled_end || !parent_user_id) {
+    if (!title || !subjects?.length || !student_user_id || !scheduled_start || !scheduled_end) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const { data: studentRoleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", student_user_id)
+      .eq("role", "student")
+      .maybeSingle();
+    if (!studentRoleRow) {
+      return new Response(JSON.stringify({ error: "Invalid student_user_id" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const questionCount = Math.min(Math.max(parseInt(String(num_questions), 10) || 10, 1), 50);
+
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Create the exam record
     const { data: exam, error: examError } = await supabaseAdmin
@@ -37,7 +87,7 @@ serve(async (req) => {
         title,
         subjects,
         topics: topics || "",
-        num_questions,
+        num_questions: questionCount,
         scheduled_start,
         scheduled_end,
         status: "scheduled",
@@ -89,7 +139,7 @@ serve(async (req) => {
     // Generate questions using Claude API with tool calling
     const subjectList = subjects.join(", ");
     const topicHint = topics ? ` focusing on topics: ${topics}` : "";
-    const prompt = `Generate exactly ${num_questions} multiple-choice questions for an 11+ Grammar School entrance exam. Subjects: ${subjectList}${topicHint}. Each question must have exactly 4 options (A, B, C, D) and one correct answer. Questions should be appropriate for a 10-11 year old student. Distribute questions evenly across the requested subjects. IMPORTANT: Use ONLY these exact subject values (lowercase): english, maths, vr, nvr. Do not add any extra characters or text to the subject field.`;
+    const prompt = `Generate exactly ${questionCount} multiple-choice questions for an 11+ Grammar School entrance exam. Subjects: ${subjectList}${topicHint}. Each question must have exactly 4 options (A, B, C, D) and one correct answer. Questions should be appropriate for a 10-11 year old student. Distribute questions evenly across the requested subjects. IMPORTANT: Use ONLY these exact subject values (lowercase): english, maths, vr, nvr. Do not add any extra characters or text to the subject field.`;
 
     const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
