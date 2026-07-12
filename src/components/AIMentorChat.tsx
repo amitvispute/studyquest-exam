@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import ParentMockCreator from "@/components/ParentMockCreator";
 import StudentExamMode from "@/components/StudentExamMode";
 import StudentAIMentorChat from "@/components/StudentAIMentorChat";
-import ParentExamResults from "@/components/ParentExamResults";
+import AIExamHistory from "@/components/AIExamHistory";
 import ParentCreditSettings from "@/components/ParentCreditSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, MessageSquare, BarChart3, Settings } from "lucide-react";
@@ -37,7 +37,7 @@ const ParentAIMentorView = () => {
       </TabsList>
       <TabsContent value="create"><ParentMockCreator /></TabsContent>
       <TabsContent value="chat"><StudentAIMentorChat /></TabsContent>
-      <TabsContent value="results"><ParentExamResults /></TabsContent>
+      <TabsContent value="results"><AIExamHistory /></TabsContent>
       <TabsContent value="settings"><ParentCreditSettings /></TabsContent>
     </Tabs>
   );
