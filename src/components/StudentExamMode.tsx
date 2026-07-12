@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -28,14 +28,18 @@ interface Exam {
   subjects: string[];
 }
 
+const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
+
 const StudentExamMode = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [flagged, setFlagged] = useState<Set<string>>(new Set());
+  const [timeLeft, setTimeLeft] = useState("");
 
-  // Fetch all exams for student
   const { data: exams = [] } = useQuery({
     queryKey: ["student_exams"],
     queryFn: async () => {
@@ -54,14 +58,16 @@ const StudentExamMode = () => {
   const now = new Date();
 
   const activeExam = exams.find(
-    (e) => new Date(e.scheduled_start) <= now && new Date(e.scheduled_end) > now && (e.status === "scheduled" || e.status === "in_progress")
+    (e) =>
+      new Date(e.scheduled_start) <= now &&
+      new Date(e.scheduled_end) > now &&
+      (e.status === "scheduled" || e.status === "in_progress")
   );
 
   const upcomingExams = exams.filter(
     (e) => new Date(e.scheduled_start) > now && e.status === "scheduled"
   );
 
-  // For active exam: fetch questions & existing answers
   const { data: questions = [] } = useQuery({
     queryKey: ["exam_questions", activeExam?.id],
     queryFn: async () => {
@@ -92,7 +98,9 @@ const StudentExamMode = () => {
   useEffect(() => {
     if (existingAnswers.length > 0) {
       const map: Record<string, string> = {};
-      existingAnswers.forEach((a: any) => { map[a.question_id] = a.student_answer; });
+      existingAnswers.forEach((a: any) => {
+        map[a.question_id] = a.student_answer;
+      });
       setAnswers(map);
       if (activeExam?.status === "completed") setShowResults(true);
     }
@@ -100,11 +108,36 @@ const StudentExamMode = () => {
 
   useEffect(() => {
     if (activeExam && activeExam.status === "scheduled") {
-      supabase.from("ai_mock_exams").update({ status: "in_progress" }).eq("id", activeExam.id).then(() => {
-        queryClient.invalidateQueries({ queryKey: ["student_exams"] });
-      });
+      supabase
+        .from("ai_mock_exams")
+        .update({ status: "in_progress" })
+        .eq("id", activeExam.id)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["student_exams"] });
+        });
     }
   }, [activeExam?.id]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!activeExam) return;
+    const tick = () => {
+      const remaining = new Date(activeExam.scheduled_end).getTime() - Date.now();
+      if (remaining <= 0) {
+        setTimeLeft("Time's up!");
+        return;
+      }
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      setTimeLeft(`${mins}:${secs.toString().padStart(2, "0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [activeExam?.scheduled_end]);
+
+  const answeredCount = Object.keys(answers).length;
+  const allAnswered = questions.length > 0 && questions.every((q) => answers[q.id]);
 
   const handleSubmit = async () => {
     if (!activeExam || questions.length === 0) return;
@@ -162,79 +195,169 @@ const StudentExamMode = () => {
     }
   };
 
-  // Show results after submit
+  const toggleFlag = useCallback(
+    (qid: string) =>
+      setFlagged((prev) => {
+        const n = new Set(prev);
+        n.has(qid) ? n.delete(qid) : n.add(qid);
+        return n;
+      }),
+    []
+  );
+
+  // ──── Results view ────
   if (showResults && activeExam && questions.length > 0) {
     return (
       <MockExamResults
+        examId={activeExam.id}
         questions={questions}
         answers={answers}
         examTitle={activeExam.title}
+        examDate={activeExam.scheduled_start}
         canReview={true}
-        onBack={() => { setShowResults(false); setAnswers({}); }}
+        onBack={() => {
+          setShowResults(false);
+          setAnswers({});
+          setCurrentIndex(0);
+          setFlagged(new Set());
+        }}
       />
     );
   }
 
-  // Active exam — show questions
-  if (activeExam) {
-    const allAnswered = questions.length > 0 && questions.every((q) => answers[q.id]);
+  // ──── Active exam: one question at a time ────
+  if (activeExam && questions.length > 0) {
+    const safeIndex = Math.min(currentIndex, questions.length - 1);
+    const q = questions[safeIndex];
+    const isLast = safeIndex === questions.length - 1;
+    const isFirst = safeIndex === 0;
+    const isFlagged = flagged.has(q.id);
+
     return (
       <div className="bg-card rounded-2xl shadow-card border border-border">
-        <div className="bg-destructive/10 border-b border-destructive/30 rounded-t-2xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-foreground text-lg">📝 {activeExam.title}</h3>
-              <p className="text-sm text-muted-foreground">Mock Exam in Progress</p>
-            </div>
-            <Badge variant="destructive">LIVE</Badge>
+        {/* Header: title + timer */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div>
+            <h3 className="font-bold text-foreground text-base">{activeExam.title}</h3>
+            <p className="text-xs text-muted-foreground">
+              Ends at {format(new Date(activeExam.scheduled_end), "HH:mm")}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Ends at {format(new Date(activeExam.scheduled_end), "HH:mm")} · {questions.length} questions
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-lg">
+              {timeLeft}
+            </span>
+            <Badge variant="destructive" className="text-[10px]">
+              LIVE
+            </Badge>
+          </div>
         </div>
-        <div className="p-5 space-y-6 max-h-[60vh] overflow-y-auto">
-          {questions.map((q) => (
-            <div key={q.id} className="bg-muted/50 rounded-xl p-4">
-              <p className="font-medium text-foreground text-sm mb-3">
-                <span className="text-primary font-bold">Q{q.question_number}.</span> {q.question_text}
-              </p>
-              <Badge variant="outline" className="mb-3 text-xs">{q.subject}</Badge>
-              <div className="space-y-2">
-                {(q.options as string[]).map((opt, oi) => (
-                  <label
-                    key={oi}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer border transition-all ${
-                      answers[q.id] === opt ? "bg-primary/10 border-primary" : "bg-background border-border hover:bg-muted"
+
+        {/* Progress pips */}
+        <div className="flex gap-[3px] px-4 pt-3 pb-1">
+          {questions.map((pq, i) => {
+            let pipColor = "bg-border";
+            if (i === safeIndex) pipColor = "bg-primary";
+            else if (answers[pq.id]) pipColor = flagged.has(pq.id) ? "bg-warning" : "bg-primary/40";
+            else if (flagged.has(pq.id)) pipColor = "bg-warning/50";
+            return (
+              <button
+                key={pq.id}
+                onClick={() => setCurrentIndex(i)}
+                className={`flex-1 h-[5px] rounded-full transition-colors ${pipColor}`}
+                title={`Q${i + 1}${answers[pq.id] ? " (answered)" : ""}${flagged.has(pq.id) ? " (flagged)" : ""}`}
+              />
+            );
+          })}
+        </div>
+
+        {/* Question */}
+        <div className="p-5">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+            Question {safeIndex + 1} of {questions.length}
+          </p>
+          <p className="text-lg font-bold text-foreground leading-snug mb-2">{q.question_text}</p>
+          <Badge variant="outline" className="text-[10px] capitalize mb-5">
+            {q.subject} · {q.topic || "General"}
+          </Badge>
+
+          {/* Options */}
+          <div className="space-y-2.5">
+            {(q.options as string[]).map((opt, oi) => {
+              const selected = answers[q.id] === opt;
+              return (
+                <button
+                  key={oi}
+                  onClick={() => setAnswers((prev) => ({ ...prev, [q.id]: opt }))}
+                  className={`w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all ${
+                    selected
+                      ? "border-primary bg-primary/10 shadow-sm"
+                      : "border-border bg-card hover:border-primary/40 hover:bg-muted/30"
+                  }`}
+                >
+                  <span
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-extrabold flex-shrink-0 ${
+                      selected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted/50 text-muted-foreground"
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name={q.id}
-                      value={opt}
-                      checked={answers[q.id] === opt}
-                      onChange={() => setAnswers((prev) => ({ ...prev, [q.id]: opt }))}
-                      className="h-4 w-4"
-                    />
-                    <span className="text-sm text-foreground">{opt}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
+                    {OPTION_LETTERS[oi] || oi + 1}
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">{opt}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Flag for review */}
+          <button
+            onClick={() => toggleFlag(q.id)}
+            className="mt-3 text-xs font-semibold text-muted-foreground hover:text-warning transition-colors"
+          >
+            {isFlagged ? "✓ Flagged for review" : "⚑ Flag for review"}
+          </button>
         </div>
-        <div className="p-4 border-t border-border">
-          <p className="text-xs text-muted-foreground mb-2 text-center">
-            {Object.keys(answers).length}/{questions.length} answered
+
+        {/* Navigation footer */}
+        <div className="px-4 pb-4 space-y-3">
+          <p className="text-xs text-muted-foreground text-center">
+            {answeredCount}/{questions.length} answered
+            {flagged.size > 0 && ` · ${flagged.size} flagged`}
           </p>
-          <Button onClick={handleSubmit} disabled={!allAnswered || isSubmitting} className="w-full h-12 text-base">
-            {isSubmitting ? "Submitting..." : "Submit All Answers ✅"}
-          </Button>
+          <div className="flex gap-2.5">
+            {!isFirst && (
+              <Button
+                variant="outline"
+                onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+                className="h-12"
+              >
+                ← Back
+              </Button>
+            )}
+            {!isLast ? (
+              <Button
+                onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+                className="flex-1 h-12 text-base"
+              >
+                Next →
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSubmit}
+                disabled={!allAnswered || isSubmitting}
+                className="flex-1 h-12 text-base"
+              >
+                {isSubmitting ? "Submitting..." : allAnswered ? "Submit Exam ✅" : `${questions.length - answeredCount} unanswered`}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
-  // No active exam — show only upcoming
+  // ──── No active exam — upcoming list ────
   return (
     <div className="space-y-4">
       {upcomingExams.length > 0 && (
