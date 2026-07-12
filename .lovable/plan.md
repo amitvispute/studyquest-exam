@@ -1,61 +1,20 @@
-# Debug "Missing required fields" on mock exam creation
+## Goal
+Enable asymmetric (ES256) JWT signing on the project's Supabase auth so MCP OAuth clients (ChatGPT, Claude, Codex, etc.) can complete sign-in against the newly wired MCP server.
 
-## What we know
+## Why
+MCP OAuth requires the authorization server to sign the OIDC ID token with an asymmetric key. This project is still on the legacy symmetric HS256 secret, which means `/oauth/token` refuses to issue an ID token and MCP sign-in fails with "HS256 is not supported for ID token signing". The rest of the MCP setup (tools, consent route, `configure_oauth_server`, deployed `mcp` function) is already in place and won't work end-to-end until this is done.
 
-- The toast wording ("Missing required fields") comes from the **edge function** `supabase/functions/generate-mock-exam/index.ts`, not client-side validation.
-- The request reached the function, passed auth + parent-role checks, then failed the `if (!title || !subjects?.length || !student_user_id || !scheduled_start || !scheduled_end)` guard.
-- DB confirms a `student` role user exists and the parent has read access to `user_roles`, so `studentId` on the client should be populated.
-- Recent edge function logs show only boot lines — the actual invocation logs were rotated out, so we can't see which specific field was null.
+## What runs
+A single call to `supabase--migrate_signing_keys`. It:
+- Is idempotent — no-op if an asymmetric key is already active.
+- Otherwise activates an existing standby ES256 key, or imports the legacy secret and creates + activates a new ES256 key.
+- Keeps existing HS256-signed user sessions verifying until they naturally expire, so nobody is signed out.
 
-## Step 1 — Add diagnostic logging (edge function)
+## Impact
+- No schema changes, no table changes, no code changes.
+- No user-visible behavior change in the app itself.
+- After it runs, MCP OAuth sign-in via external clients will succeed.
 
-In `supabase/functions/generate-mock-exam/index.ts`, right after `await req.json()`, log which fields are missing (without leaking full content):
-
-```ts
-console.log("generate-mock-exam payload keys:", {
-  hasTitle: !!title,
-  subjectsLen: Array.isArray(subjects) ? subjects.length : null,
-  hasStudentId: !!student_user_id,
-  hasStart: !!scheduled_start,
-  hasEnd: !!scheduled_end,
-  numQuestions: num_questions,
-});
-```
-
-Also change the 400 response body to echo which field failed, so the user's toast is immediately actionable:
-
-```ts
-const missing = [
-  !title && "title",
-  !subjects?.length && "subjects",
-  !student_user_id && "student_user_id",
-  !scheduled_start && "scheduled_start",
-  !scheduled_end && "scheduled_end",
-].filter(Boolean);
-if (missing.length) {
-  return new Response(JSON.stringify({ error: `Missing: ${missing.join(", ")}` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }});
-}
-```
-
-Deploy, ask the user to retry, then read logs / the new toast to identify the exact missing field.
-
-## Step 2 — Fix the root cause once identified
-
-Likely candidates and their fixes:
-
-- **`student_user_id` null** — `ParentMockCreator.tsx` queries `user_roles` with `.single()`; if the query rejected we silently fall to null. Switch to `.maybeSingle()` and surface an error if no student is found.
-- **`subjects` empty** — already guarded client-side; if backend still sees empty, the shape/name is wrong (unlikely, they match).
-- **`scheduled_start` / `scheduled_end` invalid** — if `startTime`/`endTime` were cleared, `new Date(...).toISOString()` throws before the fetch, so this would show a different error. Not likely.
-- **`title` empty** — client already trims and blocks; ruled out unless whitespace-only.
-
-Once the log names the culprit, the fix is a one-line client or server correction.
-
-## Files touched
-
-- `supabase/functions/generate-mock-exam/index.ts` (logging + specific error message)
-- Possibly `src/components/ParentMockCreator.tsx` (depends on Step 2 result)
-
-## Not in scope
-
-- The pre-existing `claude-sonnet-4-6` / `max_tokens` issues — separate bug, only reached after this validation passes.
-- Any schema, RLS, or auth changes.
+## Verification after approval
+1. Re-run `supabase--debug_oauth_server` and confirm an asymmetric signing key is now present.
+2. Optionally test a connection from an MCP client to `https://gztffbygqnxhgaxhvlrk.supabase.co/functions/v1/mcp` and confirm the OAuth handshake completes at the consent screen.
