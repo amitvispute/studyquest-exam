@@ -11,6 +11,7 @@ import RecentScores from "@/components/RecentScores";
 import WeeklyReport from "@/components/WeeklyReport";
 import AIMentorChat from "@/components/AIMentorChat";
 import MockExamTracker from "@/components/MockExamTracker";
+import AIExamHistory from "@/components/AIExamHistory";
 import ClassSchedule from "@/components/ClassSchedule";
 import ParentSummaryDashboard from "@/components/ParentSummaryDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -178,7 +179,16 @@ const Index = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="mocks"><MockExamTracker /></TabsContent>
+          <TabsContent value="mocks" className="space-y-4">
+            <Tabs defaultValue="ai" className="space-y-4">
+              <TabsList className="grid grid-cols-2 h-12">
+                <TabsTrigger value="ai" className="text-sm">AI Mock Exams</TabsTrigger>
+                <TabsTrigger value="log" className="text-sm">Practice Log</TabsTrigger>
+              </TabsList>
+              <TabsContent value="ai"><AIExamHistory /></TabsContent>
+              <TabsContent value="log"><MockExamTracker /></TabsContent>
+            </Tabs>
+          </TabsContent>
 
           <TabsContent value="classes" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
