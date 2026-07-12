@@ -310,9 +310,11 @@ const StudentAIMentorChat = () => {
     const exam = allExams.find(e => e.id === reviewExamId);
     return (
       <MockExamResults
+        examId={reviewExamId}
         questions={reviewQuestions as any}
         answers={reviewAnswerMap}
         examTitle={exam?.title || "Mock Exam"}
+        examDate={exam?.scheduled_start}
         canReview={true}
         onBack={() => setReviewExamId(null)}
       />
