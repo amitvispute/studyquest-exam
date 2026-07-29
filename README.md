@@ -33,5 +33,7 @@ to production and actively used. All development done using
 AI-assisted tools including Claude Code and Lovable, with 197 
 commits tracked on this repository.
 
+## Live App
+https://studyquest-exam.lovable.app
 Built by Amit Vispute — Scrum Master AVP at Barclays, 
 exploring AI-assisted development in personal time.
