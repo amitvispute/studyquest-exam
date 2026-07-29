@@ -35,5 +35,6 @@ commits tracked on this repository.
 
 ## Live App
 https://studyquest-exam.lovable.app
+
 Built by Amit Vispute — Scrum Master AVP at Barclays, 
 exploring AI-assisted development in personal time.
